@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>About — MITRE ATT&CK Alert Mapper</title>
+<link rel="stylesheet" href="/static/css/app.css"/>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo">🛡 ATT&CK Mapper</div>
+      <div class="tagline">MITRE ATT&CK Alert Mapper</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/"           class="nav-item" data-page="dashboard"> <span class="icon">📊</span> Dashboard</a>
+      <a href="/analyze"    class="nav-item" data-page="analyze">   <span class="icon">🔍</span> Analyze Alert</a>
+      <a href="/history"    class="nav-item" data-page="history">   <span class="icon">📋</span> Alert History</a>
+      <a href="/techniques" class="nav-item" data-page="techniques"><span class="icon">🎯</span> MITRE Techniques</a>
+      <a href="/about"      class="nav-item" data-page="about">     <span class="icon">ℹ️</span> About</a>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">About</div>
+        <div class="topbar-sub">Project information and API reference</div>
+      </div>
+    </div>
+
+    <div class="page">
+
+      <div class="card">
+        <div class="card-title">🛡 MITRE ATT&CK Alert Mapper</div>
+        <p style="color:var(--muted);font-size:14px;margin-bottom:12px">
+          A defensive cybersecurity tool that helps Security Operations Center (SOC) analysts
+          and students understand how security alerts map to the
+          <a href="https://attack.mitre.org" target="_blank">MITRE ATT&CK Enterprise Framework</a>.
+        </p>
+        <p style="color:var(--muted);font-size:13px">
+          This project is for <strong style="color:var(--text)">defensive purposes only</strong> —
+          security monitoring, threat detection, and incident investigation.
+          It does not implement or assist with attacks, exploitation, or malware.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-title">How It Works</div>
+        <div class="flow-diagram">
+          <div class="flow-step">1. You submit a security alert (text or JSON)</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-step">2. The parser extracts indicators (IP, user, process, command line…)</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-step">3. The mapping engine scores each MITRE technique by keyword matching</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-step">4. Top techniques are returned with confidence scores</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-step">5. Investigation steps and Sigma rules are shown for each technique</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Technology Stack</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Component</th><th>Technology</th></tr></thead>
+          <tbody>
+            <tr><td>Backend API</td><td>Python + FastAPI</td></tr>
+            <tr><td>Database</td><td>SQLite + SQLAlchemy ORM</td></tr>
+            <tr><td>Frontend</td><td>HTML5 + CSS3 + Vanilla JavaScript</td></tr>
+            <tr><td>MITRE Data</td><td>Local JSON (Enterprise ATT&CK)</td></tr>
+            <tr><td>Sigma Rules</td><td>Local JSON rule library</td></tr>
+            <tr><td>Data Validation</td><td>Pydantic v2</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">API Endpoints</div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge badge-sigma">POST</span></td><td><code>/api/alerts/analyze</code></td><td>Analyze and map a new security alert</td></tr>
+            <tr><td><span class="badge badge-tactic">GET</span></td><td><code>/api/alerts</code></td><td>List all analyzed alerts (paginated)</td></tr>
+            <tr><td><span class="badge badge-tactic">GET</span></td><td><code>/api/alerts/{id}</code></td><td>Get full details of a single alert</td></tr>
+            <tr><td><span class="badge badge-tactic">GET</span></td><td><code>/api/alerts/search</code></td><td>Search & filter alerts</td></tr>
+            <tr><td><span class="badge badge-tactic">GET</span></td><td><code>/api/tactics</code></td><td>List all MITRE ATT&CK tactics</td></tr>
+            <tr><td><span class="badge badge-tactic">GET</span></td><td><code>/api/techniques</code></td><td>List all techniques</td></tr>
+            <tr><td><span class="badge badge-tactic">GET</span></td><td><code>/api/techniques/{id}</code></td><td>Get a single technique</td></tr>
+            <tr><td><span class="badge badge-tactic">GET</span></td><td><code>/api/dashboard</code></td><td>Dashboard statistics</td></tr>
+          </tbody>
+        </table></div>
+        <div style="margin-top:12px">
+          <a href="/docs" target="_blank" class="btn btn-primary">📖 Interactive API Docs (Swagger)</a>
+          <a href="/redoc" target="_blank" class="btn btn-secondary" style="margin-left:8px">📄 ReDoc</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Supported MITRE Techniques</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px" id="tech-badges">
+          <div class="spinner"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚠️ Disclaimer</div>
+        <p style="color:var(--muted);font-size:13px">
+          This tool is designed for <strong style="color:var(--text)">educational and defensive security purposes</strong>.
+          All investigation guidance is focused on detection, analysis, and remediation.
+          The MITRE ATT&CK® framework is the property of The MITRE Corporation.
+          Sigma rules are used for detection purposes only.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+<script>
+setActiveNav("about");
+
+API.get("/api/techniques").then(techs => {
+  const div = document.getElementById("tech-badges");
+  div.innerHTML = techs.flatMap(t => [
+    techBadge(t.id, t.name) + ` <span style="font-size:12px">${escHtml(t.name)}</span>`,
+    ...(t.sub_techniques || []).map(s => techBadge(s.id, s.name) + ` <span style="font-size:11px;color:var(--muted)">${escHtml(s.name)}</span>`)
+  ]).map(h => `<div style="display:flex;align-items:center;gap:4px;flex-shrink:0">${h}</div>`).join("");
+}).catch(() => {
+  document.getElementById("tech-badges").textContent = "Failed to load techniques.";
+});
+</script>
+</body>
+</html>

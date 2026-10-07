@@ -1,0 +1,569 @@
+{
+  "tactics": [
+    {"id": "TA0001", "name": "Initial Access", "description": "The adversary is trying to get into your network."},
+    {"id": "TA0002", "name": "Execution", "description": "The adversary is trying to run malicious code."},
+    {"id": "TA0003", "name": "Persistence", "description": "The adversary is trying to maintain their foothold."},
+    {"id": "TA0004", "name": "Privilege Escalation", "description": "The adversary is trying to gain higher-level permissions."},
+    {"id": "TA0005", "name": "Defense Evasion", "description": "The adversary is trying to avoid being detected."},
+    {"id": "TA0006", "name": "Credential Access", "description": "The adversary is trying to steal account names and passwords."},
+    {"id": "TA0007", "name": "Discovery", "description": "The adversary is trying to figure out your environment."},
+    {"id": "TA0008", "name": "Lateral Movement", "description": "The adversary is trying to move through your environment."},
+    {"id": "TA0009", "name": "Collection", "description": "The adversary is trying to gather data of interest."},
+    {"id": "TA0010", "name": "Exfiltration", "description": "The adversary is trying to steal data."},
+    {"id": "TA0011", "name": "Command and Control", "description": "The adversary is trying to communicate with compromised systems."},
+    {"id": "TA0040", "name": "Impact", "description": "The adversary is trying to manipulate, interrupt, or destroy your systems."}
+  ],
+  "techniques": [
+    {
+      "id": "T1059",
+      "name": "Command and Scripting Interpreter",
+      "tactic_ids": ["TA0002"],
+      "tactic_names": ["Execution"],
+      "description": "Adversaries may abuse command and script interpreters to execute commands, scripts, or binaries.",
+      "url": "https://attack.mitre.org/techniques/T1059/",
+      "platforms": ["Windows", "Linux", "macOS"],
+      "data_sources": ["Process: Process Creation", "Command: Command Execution"],
+      "mitigations": ["M1038 - Execution Prevention", "M1045 - Code Signing"],
+      "investigation_steps": [
+        "Review the full command line of the interpreter process.",
+        "Identify the parent process that launched the interpreter.",
+        "Check which user account executed the command.",
+        "Correlate with other events around the same timestamp.",
+        "Search for any files created or modified by the process.",
+        "Review process lineage (parent/child chain).",
+        "Check network connections initiated by the process.",
+        "Verify if the execution is expected or authorized."
+      ],
+      "keywords": ["cmd", "command", "shell", "interpreter", "script", "batch", "wscript", "cscript"],
+      "sub_techniques": [
+        {
+          "id": "T1059.001",
+          "name": "PowerShell",
+          "description": "Adversaries may abuse PowerShell commands and scripts for execution.",
+          "keywords": ["powershell", "pwsh", "ps1", "encodedcommand", "-enc", "-encoded", "invoke-expression", "iex", "downloadstring", "bypass", "noprofile", "-nop", "hidden", "-w hidden", "base64"],
+          "investigation_steps": [
+            "Examine the full PowerShell command line arguments.",
+            "Check if encoded commands (-EncodedCommand) were used and decode them.",
+            "Identify the parent process (e.g., Office applications, browsers are suspicious).",
+            "Review PowerShell Script Block Logging (Event ID 4104).",
+            "Check PowerShell Module Logging (Event ID 4103).",
+            "Inspect for network connections made by PowerShell.",
+            "Look for files downloaded or dropped by the script.",
+            "Check if PowerShell was run with -ExecutionPolicy Bypass.",
+            "Review the AMSI logs if available."
+          ]
+        },
+        {
+          "id": "T1059.002",
+          "name": "AppleScript",
+          "description": "Adversaries may abuse AppleScript for execution on macOS.",
+          "keywords": ["osascript", "applescript", "osa"],
+          "investigation_steps": [
+            "Review the AppleScript command or script content.",
+            "Identify the calling application or user.",
+            "Check for suspicious file or network activity."
+          ]
+        },
+        {
+          "id": "T1059.003",
+          "name": "Windows Command Shell",
+          "description": "Adversaries may abuse the Windows command shell for execution.",
+          "keywords": ["cmd.exe", "cmd /c", "cmd /k", "command.com", "/c whoami", "net user", "net localgroup"],
+          "investigation_steps": [
+            "Review the complete cmd.exe command line.",
+            "Identify the parent process launching cmd.exe.",
+            "Check for data exfiltration patterns (redirections to files).",
+            "Look for living-off-the-land binaries (LOLBins) invoked.",
+            "Correlate with other suspicious events on the host.",
+            "Check for scheduled tasks or services created via cmd."
+          ]
+        },
+        {
+          "id": "T1059.005",
+          "name": "Visual Basic",
+          "description": "Adversaries may abuse Visual Basic (VB) for execution.",
+          "keywords": ["vbscript", "vbs", "wscript", "cscript", ".vbs", "createobject"],
+          "investigation_steps": [
+            "Examine the VBScript content if accessible.",
+            "Identify the parent process (Office macros are common vectors).",
+            "Look for any child processes created by the script.",
+            "Review script execution logs.",
+            "Check for network or file activity."
+          ]
+        },
+        {
+          "id": "T1059.006",
+          "name": "Python",
+          "description": "Adversaries may abuse Python commands and scripts for execution.",
+          "keywords": ["python", "python3", "python.exe", ".py", "import os", "subprocess"],
+          "investigation_steps": [
+            "Review the Python script or command arguments.",
+            "Identify the executing user and context.",
+            "Check for imported modules that suggest malicious activity.",
+            "Examine any files created or network connections made."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T1053",
+      "name": "Scheduled Task/Job",
+      "tactic_ids": ["TA0002", "TA0003", "TA0004"],
+      "tactic_names": ["Execution", "Persistence", "Privilege Escalation"],
+      "description": "Adversaries may abuse task scheduling functionality to facilitate initial or recurring execution of malicious code.",
+      "url": "https://attack.mitre.org/techniques/T1053/",
+      "platforms": ["Windows", "Linux", "macOS"],
+      "data_sources": ["Scheduled Job: Scheduled Job Creation", "Process: Process Creation", "File: File Creation"],
+      "mitigations": ["M1028 - Operating System Configuration", "M1047 - Audit"],
+      "investigation_steps": [
+        "List all scheduled tasks/cron jobs on the system.",
+        "Review recently created or modified scheduled tasks.",
+        "Examine the command or script being executed by the task.",
+        "Check the user context under which the task runs.",
+        "Identify whether the task was created by a legitimate process.",
+        "Review the task creation time and correlate with other events.",
+        "Verify the task's action and trigger settings."
+      ],
+      "keywords": ["schtasks", "taskschd", "at.exe", "scheduled task", "crontab", "cron", "task scheduler", "launchd"],
+      "sub_techniques": [
+        {
+          "id": "T1053.002",
+          "name": "At",
+          "description": "Adversaries may abuse the at utility to perform task scheduling.",
+          "keywords": ["at.exe", " at ", "at /create"],
+          "investigation_steps": [
+            "Check for 'at' commands in process creation logs.",
+            "Review the scheduled job created by 'at'.",
+            "Identify the user who scheduled the job."
+          ]
+        },
+        {
+          "id": "T1053.005",
+          "name": "Scheduled Task",
+          "description": "Adversaries may abuse the Windows Task Scheduler to perform task scheduling.",
+          "keywords": ["schtasks", "taskschd.msc", "task scheduler", "scheduled task", "/create /tn", "/sc onlogon"],
+          "investigation_steps": [
+            "Use 'schtasks /query' to list all scheduled tasks.",
+            "Examine the XML definition of suspicious tasks.",
+            "Check the executing binary or script.",
+            "Review Event ID 4698 (Task Created) and 4702 (Task Updated).",
+            "Identify tasks running from temp directories or unusual paths.",
+            "Check if the task runs with SYSTEM or elevated privileges."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T1078",
+      "name": "Valid Accounts",
+      "tactic_ids": ["TA0001", "TA0003", "TA0004", "TA0005"],
+      "tactic_names": ["Initial Access", "Persistence", "Privilege Escalation", "Defense Evasion"],
+      "description": "Adversaries may obtain and abuse credentials of existing accounts as a means of gaining Initial Access, Persistence, Privilege Escalation, or Defense Evasion.",
+      "url": "https://attack.mitre.org/techniques/T1078/",
+      "platforms": ["Windows", "Linux", "macOS", "Azure AD", "Office 365"],
+      "data_sources": ["Logon Session: Logon Session Creation", "User Account: User Account Authentication"],
+      "mitigations": ["M1032 - Multi-factor Authentication", "M1027 - Password Policies", "M1026 - Privileged Account Management"],
+      "investigation_steps": [
+        "Verify if the account login is expected from this source.",
+        "Check login time, source IP, and geolocation for anomalies.",
+        "Review recent password changes for the account.",
+        "Examine actions taken by the account after login.",
+        "Check for concurrent logins from different locations.",
+        "Review failed authentication attempts preceding successful login.",
+        "Validate with the account owner if the activity is legitimate.",
+        "Check for lateral movement from this account."
+      ],
+      "keywords": ["valid account", "login", "logon", "authentication", "credential", "remote login", "rdp", "ssh", "vpn"],
+      "sub_techniques": [
+        {
+          "id": "T1078.002",
+          "name": "Domain Accounts",
+          "description": "Adversaries may obtain and abuse credentials of a domain account.",
+          "keywords": ["domain account", "domain login", "domain logon", "kerberos", "ntlm", "active directory"],
+          "investigation_steps": [
+            "Review domain controller authentication logs.",
+            "Check for unusual Kerberos ticket requests.",
+            "Identify the source workstation of the authentication.",
+            "Compare with baseline login patterns for the account."
+          ]
+        },
+        {
+          "id": "T1078.003",
+          "name": "Local Accounts",
+          "description": "Adversaries may obtain and abuse credentials of a local account.",
+          "keywords": ["local account", "local login", "local logon", "administrator", "local admin"],
+          "investigation_steps": [
+            "Check Event ID 4624 for local logon events.",
+            "Identify the logon type (interactive, remote, network).",
+            "Review actions taken with the local account.",
+            "Check if the account was recently modified."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T1003",
+      "name": "OS Credential Dumping",
+      "tactic_ids": ["TA0006"],
+      "tactic_names": ["Credential Access"],
+      "description": "Adversaries may attempt to dump credentials to obtain account login and credential material, normally in the form of a hash or a clear text password.",
+      "url": "https://attack.mitre.org/techniques/T1003/",
+      "platforms": ["Windows", "Linux", "macOS"],
+      "data_sources": ["Process: Process Access", "Process: Process Creation", "File: File Access"],
+      "mitigations": ["M1043 - Credential Access Protection", "M1015 - Active Directory Configuration", "M1026 - Privileged Account Management"],
+      "investigation_steps": [
+        "Identify the tool used for credential dumping (mimikatz, procdump, etc.).",
+        "Check the process that accessed LSASS memory.",
+        "Review Event ID 4656 and 4663 for handle requests on LSASS.",
+        "Examine any suspicious file creation after the event.",
+        "Check if the user had sufficient privileges to dump credentials.",
+        "Review Sysmon Event ID 10 (Process Access) for LSASS.",
+        "Investigate what accounts may have been compromised.",
+        "Check for subsequent lateral movement with new credentials."
+      ],
+      "keywords": ["mimikatz", "credential dump", "lsass", "procdump", "secretsdump", "hashdump", "pass-the-hash", "ntds.dit", "sam database", "credential access", "wce.exe", "fgdump"],
+      "sub_techniques": [
+        {
+          "id": "T1003.001",
+          "name": "LSASS Memory",
+          "description": "Adversaries may attempt to access credential material stored in the process memory of the Local Security Authority Subsystem Service (LSASS).",
+          "keywords": ["lsass", "lsass.exe", "sekurlsa", "logonpasswords", "procdump -ma lsass", "taskmgr", "comsvcs.dll"],
+          "investigation_steps": [
+            "Check Sysmon Event ID 10 for LSASS process access.",
+            "Review Event ID 4656 for object access requests on LSASS.",
+            "Identify the source process accessing LSASS.",
+            "Check if a memory dump file was created.",
+            "Review Credential Guard configuration.",
+            "Look for known credential dumping tool signatures."
+          ]
+        },
+        {
+          "id": "T1003.002",
+          "name": "Security Account Manager",
+          "description": "Adversaries may attempt to extract credential material from the Security Account Manager (SAM) database.",
+          "keywords": ["sam", "reg save", "hklm\\sam", "samdump2", "pwdump"],
+          "investigation_steps": [
+            "Check for access to the SAM registry hive.",
+            "Review shadow copy or backup activity.",
+            "Identify any registry export commands.",
+            "Check Event ID 4663 for SAM file access."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T1087",
+      "name": "Account Discovery",
+      "tactic_ids": ["TA0007"],
+      "tactic_names": ["Discovery"],
+      "description": "Adversaries may attempt to get a listing of accounts on a system or within an environment.",
+      "url": "https://attack.mitre.org/techniques/T1087/",
+      "platforms": ["Windows", "Linux", "macOS", "Azure AD", "Office 365"],
+      "data_sources": ["Process: Process Creation", "Command: Command Execution", "Network Traffic: Network Traffic Content"],
+      "mitigations": ["M1028 - Operating System Configuration", "M1018 - User Account Management"],
+      "investigation_steps": [
+        "Review the command used to enumerate accounts.",
+        "Identify the user context executing the enumeration.",
+        "Check if enumeration was followed by suspicious login attempts.",
+        "Review the scope of accounts discovered.",
+        "Correlate with other discovery activities on the host.",
+        "Check if the activity is consistent with IT administrative tasks."
+      ],
+      "keywords": ["net user", "net localgroup", "net group", "whoami", "id", "getent passwd", "dsquery", "ldap", "account discovery", "user enumeration"],
+      "sub_techniques": [
+        {
+          "id": "T1087.001",
+          "name": "Local Account",
+          "description": "Adversaries may attempt to get a listing of local system accounts.",
+          "keywords": ["net user", "net localgroup administrators", "whoami /all", "cat /etc/passwd"],
+          "investigation_steps": [
+            "Check for 'net user' or 'net localgroup' commands.",
+            "Review the user executing these commands.",
+            "Correlate with other suspicious process activity."
+          ]
+        },
+        {
+          "id": "T1087.002",
+          "name": "Domain Account",
+          "description": "Adversaries may attempt to get a listing of domain accounts.",
+          "keywords": ["net group", "net user /domain", "dsquery user", "ldapquery", "get-aduser", "get-adgroup"],
+          "investigation_steps": [
+            "Check for LDAP queries to domain controllers.",
+            "Review AD audit logs for large enumeration queries.",
+            "Identify the source and context of domain enumeration.",
+            "Check for subsequent targeted attacks on discovered accounts."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T1016",
+      "name": "System Network Configuration Discovery",
+      "tactic_ids": ["TA0007"],
+      "tactic_names": ["Discovery"],
+      "description": "Adversaries may look for details about the network configuration and settings of systems they access or through information of remote systems.",
+      "url": "https://attack.mitre.org/techniques/T1016/",
+      "platforms": ["Windows", "Linux", "macOS"],
+      "data_sources": ["Process: Process Creation", "Command: Command Execution"],
+      "mitigations": [],
+      "investigation_steps": [
+        "Review which network discovery commands were executed.",
+        "Identify the user and process running the commands.",
+        "Determine if the discovery is part of a broader reconnaissance.",
+        "Correlate with other discovery events on the same host.",
+        "Check if an attacker may have used results to plan lateral movement.",
+        "Review any scripts or tools that automated the discovery."
+      ],
+      "keywords": ["ipconfig", "ifconfig", "netstat", "arp", "route", "nslookup", "ip addr", "networksetup", "network configuration", "ip route"],
+      "sub_techniques": []
+    },
+    {
+      "id": "T1049",
+      "name": "System Network Connections Discovery",
+      "tactic_ids": ["TA0007"],
+      "tactic_names": ["Discovery"],
+      "description": "Adversaries may attempt to get a listing of network connections to or from the compromised system.",
+      "url": "https://attack.mitre.org/techniques/T1049/",
+      "platforms": ["Windows", "Linux", "macOS"],
+      "data_sources": ["Process: Process Creation", "Command: Command Execution"],
+      "mitigations": [],
+      "investigation_steps": [
+        "Review the network connection listing command.",
+        "Check for unusual external connections identified.",
+        "Identify if the discovery preceded any lateral movement.",
+        "Review active network connections at the time of discovery.",
+        "Correlate with firewall and proxy logs.",
+        "Check if the command was run from an unusual process."
+      ],
+      "keywords": ["netstat", "ss -", "net connections", "network connections", "get-netconnection", "lsof -i"],
+      "sub_techniques": []
+    },
+    {
+      "id": "T1105",
+      "name": "Ingress Tool Transfer",
+      "tactic_ids": ["TA0011"],
+      "tactic_names": ["Command and Control"],
+      "description": "Adversaries may transfer tools or other files from an external system into a compromised environment.",
+      "url": "https://attack.mitre.org/techniques/T1105/",
+      "platforms": ["Windows", "Linux", "macOS"],
+      "data_sources": ["Network Traffic: Network Traffic Content", "File: File Creation", "Process: Process Creation"],
+      "mitigations": ["M1031 - Network Intrusion Prevention", "M1037 - Filter Network Traffic"],
+      "investigation_steps": [
+        "Identify the file(s) transferred and their hash values.",
+        "Determine the source IP/domain used for download.",
+        "Check the tool used to perform the download (curl, wget, certutil, etc.).",
+        "Analyze the downloaded file for malware indicators.",
+        "Review DNS queries associated with the download.",
+        "Check the destination path and permissions of the downloaded file.",
+        "Investigate what happened after the file transfer.",
+        "Block the source IP/domain if malicious."
+      ],
+      "keywords": ["wget", "curl", "certutil", "bitsadmin", "invoke-webrequest", "downloadfile", "downloadstring", "ftp", "scp", "tool transfer", "download", "http get"],
+      "sub_techniques": []
+    },
+    {
+      "id": "T1110",
+      "name": "Brute Force",
+      "tactic_ids": ["TA0006"],
+      "tactic_names": ["Credential Access"],
+      "description": "Adversaries may use brute force techniques to gain access to accounts when passwords are unknown or when password hashes are obtained.",
+      "url": "https://attack.mitre.org/techniques/T1110/",
+      "platforms": ["Windows", "Linux", "macOS", "Azure AD", "Office 365"],
+      "data_sources": ["User Account: User Account Authentication", "Application Log: Application Log Content"],
+      "mitigations": ["M1036 - Account Use Policies", "M1032 - Multi-factor Authentication", "M1027 - Password Policies"],
+      "investigation_steps": [
+        "Count the number of failed authentication attempts.",
+        "Identify the source IP(s) making the attempts.",
+        "Check the time window of the failed attempts.",
+        "Determine if any attempts were successful.",
+        "Review the targeted account(s).",
+        "Check if the source IP is known or external.",
+        "Implement account lockout if not already in place.",
+        "Consider blocking the source IP at the firewall.",
+        "Notify the account owner if their account was targeted."
+      ],
+      "keywords": ["failed login", "failed logon", "authentication failure", "brute force", "multiple failed", "account lockout", "4625", "login failure", "bad password"],
+      "sub_techniques": [
+        {
+          "id": "T1110.001",
+          "name": "Password Guessing",
+          "description": "Adversaries with no prior knowledge of legitimate credentials may guess passwords.",
+          "keywords": ["password guessing", "failed login", "failed authentication", "wrong password"],
+          "investigation_steps": [
+            "Review Event ID 4625 for failed logon attempts.",
+            "Check if a single source is targeting multiple accounts.",
+            "Implement account lockout policies.",
+            "Monitor for successful logon after multiple failures."
+          ]
+        },
+        {
+          "id": "T1110.003",
+          "name": "Password Spraying",
+          "description": "Adversaries may use a single or small list of commonly used passwords against many different accounts.",
+          "keywords": ["password spray", "password spraying", "multiple accounts", "same password"],
+          "investigation_steps": [
+            "Identify if the same source IP is targeting many different accounts.",
+            "Check for a low number of attempts per account (to avoid lockouts).",
+            "Review authentication logs across all systems.",
+            "Implement multi-factor authentication."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T1136",
+      "name": "Create Account",
+      "tactic_ids": ["TA0003"],
+      "tactic_names": ["Persistence"],
+      "description": "Adversaries may create an account to maintain access to victim systems.",
+      "url": "https://attack.mitre.org/techniques/T1136/",
+      "platforms": ["Windows", "Linux", "macOS", "Azure AD", "Office 365"],
+      "data_sources": ["User Account: User Account Creation"],
+      "mitigations": ["M1032 - Multi-factor Authentication", "M1026 - Privileged Account Management"],
+      "investigation_steps": [
+        "Identify who created the new account (Event ID 4720).",
+        "Verify if the account creation was authorized.",
+        "Check if the new account was added to privileged groups.",
+        "Review actions taken with the new account after creation.",
+        "Check the account naming convention for anomalies.",
+        "Verify with HR or IT if the account is legitimate.",
+        "Monitor subsequent logins with the new account."
+      ],
+      "keywords": ["new user", "new account", "create account", "net user /add", "useradd", "adduser", "account created", "4720", "user creation"],
+      "sub_techniques": [
+        {
+          "id": "T1136.001",
+          "name": "Local Account",
+          "description": "Adversaries may create a local account to maintain access.",
+          "keywords": ["net user /add", "useradd", "adduser", "local user created", "new local user"],
+          "investigation_steps": [
+            "Check Event ID 4720 for account creation.",
+            "Identify the creating user and process.",
+            "Verify if the new account was added to local admin group.",
+            "Monitor for logons using the new account."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T1021",
+      "name": "Remote Services",
+      "tactic_ids": ["TA0008"],
+      "tactic_names": ["Lateral Movement"],
+      "description": "Adversaries may use Valid Accounts to log into a service specifically designed to accept remote connections.",
+      "url": "https://attack.mitre.org/techniques/T1021/",
+      "platforms": ["Windows", "Linux", "macOS"],
+      "data_sources": ["Logon Session: Logon Session Creation", "Network Traffic: Network Traffic Flow"],
+      "mitigations": ["M1035 - Limit Access to Resource Over Network", "M1032 - Multi-factor Authentication"],
+      "investigation_steps": [
+        "Identify the remote service used (RDP, SSH, WinRM, etc.).",
+        "Verify the source IP and user account.",
+        "Check if this remote access is authorized.",
+        "Review actions performed during the remote session.",
+        "Check for data access or exfiltration during the session.",
+        "Correlate with VPN or network logs.",
+        "Verify with the account owner if the session was initiated by them."
+      ],
+      "keywords": ["rdp", "remote desktop", "ssh", "winrm", "psexec", "remote login", "remote access", "3389", "22", "5985", "lateral movement"],
+      "sub_techniques": [
+        {
+          "id": "T1021.001",
+          "name": "Remote Desktop Protocol",
+          "description": "Adversaries may use Valid Accounts to log into a computer using the Remote Desktop Protocol (RDP).",
+          "keywords": ["rdp", "remote desktop", "mstsc", "3389", "terminal services"],
+          "investigation_steps": [
+            "Check Event ID 4624 with Logon Type 10 (RemoteInteractive).",
+            "Review RDP connection logs.",
+            "Identify the source IP and user.",
+            "Check for any data copied during the RDP session.",
+            "Review actions taken during the session."
+          ]
+        },
+        {
+          "id": "T1021.004",
+          "name": "SSH",
+          "description": "Adversaries may use Valid Accounts to log into remote machines using SSH.",
+          "keywords": ["ssh", "openssh", "port 22", "authorized_keys", "ssh login"],
+          "investigation_steps": [
+            "Review /var/log/auth.log or /var/log/secure for SSH events.",
+            "Identify the source IP and user key used.",
+            "Check for unauthorized SSH key additions.",
+            "Review commands executed during the SSH session."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T1071",
+      "name": "Application Layer Protocol",
+      "tactic_ids": ["TA0011"],
+      "tactic_names": ["Command and Control"],
+      "description": "Adversaries may communicate using OSI application layer protocols to avoid detection/network filtering.",
+      "url": "https://attack.mitre.org/techniques/T1071/",
+      "platforms": ["Windows", "Linux", "macOS"],
+      "data_sources": ["Network Traffic: Network Traffic Content", "Network Traffic: Network Traffic Flow"],
+      "mitigations": ["M1031 - Network Intrusion Prevention", "M1037 - Filter Network Traffic"],
+      "investigation_steps": [
+        "Identify the destination IP and domain.",
+        "Check the reputation of the destination using threat intelligence.",
+        "Review the volume and frequency of the connections.",
+        "Inspect packet contents if possible.",
+        "Check DNS resolution for the destination.",
+        "Review proxy logs for HTTP/HTTPS connections.",
+        "Look for beaconing patterns (regular intervals).",
+        "Block the destination if confirmed malicious."
+      ],
+      "keywords": ["suspicious connection", "suspicious ip", "c2", "command and control", "beaconing", "outbound connection", "unusual port", "suspicious outbound", "malicious ip"],
+      "sub_techniques": [
+        {
+          "id": "T1071.001",
+          "name": "Web Protocols",
+          "description": "Adversaries may communicate using application layer protocols associated with web traffic to avoid detection.",
+          "keywords": ["http", "https", "web request", "port 80", "port 443", "curl", "wget"],
+          "investigation_steps": [
+            "Review proxy/web gateway logs for the connection.",
+            "Check the URL and User-Agent string.",
+            "Look for unusual HTTP methods or headers.",
+            "Check certificate information for HTTPS connections."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "T1204",
+      "name": "User Execution",
+      "tactic_ids": ["TA0002"],
+      "tactic_names": ["Execution"],
+      "description": "An adversary may rely upon specific actions by a user in order to gain execution.",
+      "url": "https://attack.mitre.org/techniques/T1204/",
+      "platforms": ["Windows", "Linux", "macOS"],
+      "data_sources": ["Process: Process Creation", "File: File Creation"],
+      "mitigations": ["M1038 - Execution Prevention", "M1017 - User Training", "M1045 - Code Signing"],
+      "investigation_steps": [
+        "Identify the file that was executed.",
+        "Check the hash of the file against threat intelligence.",
+        "Determine how the file arrived on the system.",
+        "Review the parent process of the execution.",
+        "Check for child processes spawned by the executed file.",
+        "Review network connections made after execution.",
+        "Examine any files created or modified by the process."
+      ],
+      "keywords": ["user execution", "file execution", "suspicious file", "executable", "ran file", ".exe", ".bat", ".js", "malicious file"],
+      "sub_techniques": [
+        {
+          "id": "T1204.002",
+          "name": "Malicious File",
+          "description": "An adversary may rely upon a user opening a malicious file in order to gain execution.",
+          "keywords": ["malicious file", "suspicious executable", ".exe", ".bat", ".js", ".hta", "double-clicked"],
+          "investigation_steps": [
+            "Hash the file and check VirusTotal or other threat intel.",
+            "Examine the file metadata and origin.",
+            "Check parent-child process relationships.",
+            "Look for dropped files or registry modifications.",
+            "Review network connections after execution."
+          ]
+        }
+      ]
+    }
+  ]
+}

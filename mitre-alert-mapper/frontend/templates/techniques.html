@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>MITRE Techniques — MITRE ATT&CK Alert Mapper</title>
+<link rel="stylesheet" href="/static/css/app.css"/>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo">🛡 ATT&CK Mapper</div>
+      <div class="tagline">MITRE ATT&CK Alert Mapper</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/"           class="nav-item" data-page="dashboard"> <span class="icon">📊</span> Dashboard</a>
+      <a href="/analyze"    class="nav-item" data-page="analyze">   <span class="icon">🔍</span> Analyze Alert</a>
+      <a href="/history"    class="nav-item" data-page="history">   <span class="icon">📋</span> Alert History</a>
+      <a href="/techniques" class="nav-item" data-page="techniques"><span class="icon">🎯</span> MITRE Techniques</a>
+      <a href="/about"      class="nav-item" data-page="about">     <span class="icon">ℹ️</span> About</a>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">MITRE ATT&CK Techniques</div>
+        <div class="topbar-sub">Browse techniques and sub-techniques from the Enterprise framework</div>
+      </div>
+    </div>
+
+    <div class="page">
+      <!-- Search -->
+      <div class="card">
+        <input id="search-tech" placeholder="Search by technique name or ID (e.g. T1059 or PowerShell)…" oninput="filterTechniques()"/>
+      </div>
+
+      <!-- Tactic filter buttons -->
+      <div id="tactic-filters" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:20px"></div>
+
+      <!-- Technique cards -->
+      <div id="tech-list">
+        <div style="text-align:center;padding:40px"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+<script>
+setActiveNav("techniques");
+
+let allTechniques = [];
+let activeTactic = null;
+
+async function loadTechniques() {
+  try {
+    const [techniques, tactics] = await Promise.all([
+      API.get("/api/techniques"),
+      API.get("/api/tactics")
+    ]);
+    allTechniques = techniques;
+    renderTacticFilters(tactics);
+    renderTechniques(techniques);
+  } catch (e) {
+    document.getElementById("tech-list").innerHTML =
+      `<div class="empty-state"><div class="icon">⚠️</div><p>${escHtml(e.message)}</p></div>`;
+  }
+}
+
+function renderTacticFilters(tactics) {
+  const div = document.getElementById("tactic-filters");
+  const all = document.createElement("button");
+  all.className = "btn btn-primary";
+  all.textContent = "All Tactics";
+  all.onclick = () => { activeTactic = null; filterTechniques(); updateTacticBtns(null); };
+  div.appendChild(all);
+
+  tactics.forEach(t => {
+    const btn = document.createElement("button");
+    btn.className = "btn btn-secondary";
+    btn.textContent = t.name;
+    btn.dataset.tacticId = t.id;
+    btn.onclick = () => { activeTactic = t.id; filterTechniques(); updateTacticBtns(t.id); };
+    div.appendChild(btn);
+  });
+}
+
+function updateTacticBtns(tacticId) {
+  document.querySelectorAll("#tactic-filters button").forEach(btn => {
+    if (tacticId === null) {
+      btn.className = btn.textContent === "All Tactics" ? "btn btn-primary" : "btn btn-secondary";
+    } else {
+      btn.className = btn.dataset.tacticId === tacticId ? "btn btn-primary" : "btn btn-secondary";
+    }
+  });
+}
+
+function filterTechniques() {
+  const q = document.getElementById("search-tech").value.trim().toLowerCase();
+  let filtered = allTechniques;
+
+  if (activeTactic) {
+    filtered = filtered.filter(t => t.tactic_ids && t.tactic_ids.includes(activeTactic));
+  }
+  if (q) {
+    filtered = filtered.filter(t =>
+      t.id.toLowerCase().includes(q) ||
+      t.name.toLowerCase().includes(q) ||
+      (t.sub_techniques || []).some(s => s.id.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))
+    );
+  }
+  renderTechniques(filtered);
+}
+
+function renderTechniques(techniques) {
+  const div = document.getElementById("tech-list");
+  if (!techniques || techniques.length === 0) {
+    div.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><p>No techniques match your search.</p></div>';
+    return;
+  }
+  div.innerHTML = techniques.map(t => `
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+            ${techBadge(t.id, t.name)}
+            <strong style="font-size:15px">${escHtml(t.name)}</strong>
+            ${(t.tactic_names || []).map(tn => tacticBadge(tn)).join(" ")}
+          </div>
+          <p style="color:var(--muted);font-size:13px;margin-bottom:10px">${escHtml(t.description || "")}</p>
+
+          ${t.platforms && t.platforms.length ? `
+          <div style="margin-bottom:8px">
+            <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px">Platforms: </span>
+            ${t.platforms.map(p => `<span class="badge badge-tactic" style="font-size:11px">${p}</span>`).join(" ")}
+          </div>` : ""}
+
+          ${t.investigation_steps && t.investigation_steps.length ? `
+          <details style="margin-top:8px">
+            <summary style="cursor:pointer;font-size:12px;color:var(--accent);user-select:none">
+              🔎 Investigation Steps (${t.investigation_steps.length})
+            </summary>
+            <ul class="steps-list" style="margin-top:8px">
+              ${t.investigation_steps.map(s => `<li>${escHtml(s)}</li>`).join("")}
+            </ul>
+          </details>` : ""}
+
+          <div style="margin-top:10px">
+            <a href="https://attack.mitre.org/techniques/${t.id}/" target="_blank" class="btn btn-secondary" style="font-size:12px">
+              🔗 MITRE ATT&CK
+            </a>
+          </div>
+        </div>
+
+        ${t.sub_techniques && t.sub_techniques.length ? `
+        <div style="min-width:220px;max-width:340px">
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:8px">
+            Sub-techniques (${t.sub_techniques.length})
+          </div>
+          ${t.sub_techniques.map(s => `
+            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-bottom:6px">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                ${techBadge(s.id, s.name)}
+                <span style="font-size:13px;font-weight:600">${escHtml(s.name)}</span>
+              </div>
+              <p style="font-size:12px;color:var(--muted);margin:0">${escHtml((s.description||"").slice(0,120))}${(s.description||"").length > 120 ? "…" : ""}</p>
+            </div>
+          `).join("")}
+        </div>` : ""}
+      </div>
+    </div>
+  `).join("");
+}
+
+loadTechniques();
+</script>
+</body>
+</html>

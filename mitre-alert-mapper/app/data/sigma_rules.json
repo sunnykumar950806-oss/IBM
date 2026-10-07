@@ -1,0 +1,134 @@
+[
+  {
+    "id": "sigma-001",
+    "title": "PowerShell Encoded Command Execution",
+    "description": "Detects execution of PowerShell with encoded command parameter, commonly used to obfuscate malicious scripts.",
+    "technique_ids": ["T1059.001"],
+    "status": "stable",
+    "level": "high",
+    "keywords": ["encodedcommand", "-enc ", "-e ", "base64", "powershell"],
+    "logsource": "process_creation",
+    "detection_logic": "Match powershell.exe with -EncodedCommand or -enc argument"
+  },
+  {
+    "id": "sigma-002",
+    "title": "PowerShell Download Cradle",
+    "description": "Detects PowerShell downloading content from the internet, a common technique for staged payload delivery.",
+    "technique_ids": ["T1059.001", "T1105"],
+    "status": "stable",
+    "level": "high",
+    "keywords": ["downloadstring", "invoke-webrequest", "webclient", "downloadfile", "iwr ", "curl"],
+    "logsource": "process_creation",
+    "detection_logic": "Match PowerShell process with web download function calls"
+  },
+  {
+    "id": "sigma-003",
+    "title": "Multiple Failed Logon Attempts",
+    "description": "Detects multiple authentication failures from a single source, indicating possible brute-force activity.",
+    "technique_ids": ["T1110.001", "T1110"],
+    "status": "stable",
+    "level": "medium",
+    "keywords": ["failed login", "4625", "authentication failure", "bad password", "multiple failed"],
+    "logsource": "security",
+    "detection_logic": "Count Event ID 4625 > 5 within 5 minutes from same source"
+  },
+  {
+    "id": "sigma-004",
+    "title": "New Local User Account Created",
+    "description": "Detects creation of a new local user account, which may indicate attacker persistence via backdoor account.",
+    "technique_ids": ["T1136.001", "T1136"],
+    "status": "stable",
+    "level": "medium",
+    "keywords": ["net user /add", "4720", "new user", "useradd", "account created"],
+    "logsource": "security",
+    "detection_logic": "Match Event ID 4720 (User Account Created)"
+  },
+  {
+    "id": "sigma-005",
+    "title": "Suspicious Scheduled Task Creation",
+    "description": "Detects creation of scheduled tasks via schtasks.exe or similar, which may indicate persistence or lateral movement.",
+    "technique_ids": ["T1053.005", "T1053"],
+    "status": "stable",
+    "level": "medium",
+    "keywords": ["schtasks", "/create", "task scheduler", "scheduled task"],
+    "logsource": "process_creation",
+    "detection_logic": "Match schtasks.exe with /Create argument"
+  },
+  {
+    "id": "sigma-006",
+    "title": "LSASS Memory Access",
+    "description": "Detects access to the LSASS process memory, which may indicate credential dumping activity.",
+    "technique_ids": ["T1003.001", "T1003"],
+    "status": "stable",
+    "level": "critical",
+    "keywords": ["lsass", "procdump", "mimikatz", "sekurlsa", "comsvcs.dll"],
+    "logsource": "sysmon",
+    "detection_logic": "Match process access events targeting lsass.exe (Sysmon Event ID 10)"
+  },
+  {
+    "id": "sigma-007",
+    "title": "Network Discovery Commands",
+    "description": "Detects execution of common network discovery commands that may indicate an attacker mapping the network.",
+    "technique_ids": ["T1016", "T1049"],
+    "status": "stable",
+    "level": "low",
+    "keywords": ["ipconfig", "ifconfig", "netstat", "arp", "nslookup", "ip addr", "route print"],
+    "logsource": "process_creation",
+    "detection_logic": "Match execution of common network reconnaissance utilities"
+  },
+  {
+    "id": "sigma-008",
+    "title": "Remote Desktop Protocol Logon",
+    "description": "Detects RDP logon events which may indicate lateral movement or unauthorized remote access.",
+    "technique_ids": ["T1021.001", "T1021"],
+    "status": "stable",
+    "level": "medium",
+    "keywords": ["rdp", "remote desktop", "3389", "terminal services", "logon type 10"],
+    "logsource": "security",
+    "detection_logic": "Match Event ID 4624 with Logon Type 10 (RemoteInteractive)"
+  },
+  {
+    "id": "sigma-009",
+    "title": "Suspicious Outbound Connection",
+    "description": "Detects outbound network connections to known suspicious IP ranges or on non-standard ports.",
+    "technique_ids": ["T1071.001", "T1071"],
+    "status": "experimental",
+    "level": "medium",
+    "keywords": ["suspicious ip", "outbound connection", "unusual port", "c2", "beaconing"],
+    "logsource": "network",
+    "detection_logic": "Match network connections to known bad IPs or unusual destination ports"
+  },
+  {
+    "id": "sigma-010",
+    "title": "Command Shell Execution",
+    "description": "Detects suspicious command shell (cmd.exe) executions, particularly from uncommon parent processes.",
+    "technique_ids": ["T1059.003", "T1059"],
+    "status": "stable",
+    "level": "medium",
+    "keywords": ["cmd.exe", "cmd /c", "command shell", "/c whoami", "cmd /k"],
+    "logsource": "process_creation",
+    "detection_logic": "Match cmd.exe spawned from unusual parent processes like Office or browsers"
+  },
+  {
+    "id": "sigma-011",
+    "title": "Account Discovery via Net Commands",
+    "description": "Detects use of 'net user' or 'net group' commands for account enumeration.",
+    "technique_ids": ["T1087.001", "T1087.002", "T1087"],
+    "status": "stable",
+    "level": "medium",
+    "keywords": ["net user", "net localgroup", "net group", "whoami /all"],
+    "logsource": "process_creation",
+    "detection_logic": "Match net.exe with user or group enumeration arguments"
+  },
+  {
+    "id": "sigma-012",
+    "title": "Suspicious File Download via certutil",
+    "description": "Detects use of certutil.exe for file download, a common living-off-the-land technique.",
+    "technique_ids": ["T1105"],
+    "status": "stable",
+    "level": "high",
+    "keywords": ["certutil", "-urlcache", "-split", "-f", "certutil.exe"],
+    "logsource": "process_creation",
+    "detection_logic": "Match certutil.exe with -urlcache or -split arguments"
+  }
+]

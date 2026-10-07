@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Alert History — MITRE ATT&CK Alert Mapper</title>
+<link rel="stylesheet" href="/static/css/app.css"/>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo">🛡 ATT&CK Mapper</div>
+      <div class="tagline">MITRE ATT&CK Alert Mapper</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/"           class="nav-item" data-page="dashboard"> <span class="icon">📊</span> Dashboard</a>
+      <a href="/analyze"    class="nav-item" data-page="analyze">   <span class="icon">🔍</span> Analyze Alert</a>
+      <a href="/history"    class="nav-item" data-page="history">   <span class="icon">📋</span> Alert History</a>
+      <a href="/techniques" class="nav-item" data-page="techniques"><span class="icon">🎯</span> MITRE Techniques</a>
+      <a href="/about"      class="nav-item" data-page="about">     <span class="icon">ℹ️</span> About</a>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Alert History</div>
+        <div class="topbar-sub">Browse and search all analyzed alerts</div>
+      </div>
+      <div style="margin-left:auto">
+        <a href="/analyze" class="btn btn-primary">+ Analyze New</a>
+      </div>
+    </div>
+
+    <div class="page">
+      <!-- Search / filter bar -->
+      <div class="card">
+        <div class="card-title">Search & Filter</div>
+        <div class="search-bar">
+          <input id="f-alert-type" placeholder="Alert type (e.g. PowerShell)"/>
+          <select id="f-confidence">
+            <option value="">All confidence</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+          <input id="f-tactic" placeholder="Tactic (e.g. Execution)"/>
+          <input id="f-technique" placeholder="Technique ID (e.g. T1059)"/>
+          <input id="f-date-from" type="date" title="From date"/>
+          <input id="f-date-to" type="date" title="To date"/>
+          <button class="btn btn-primary" onclick="doSearch()">🔍 Search</button>
+          <button class="btn btn-secondary" onclick="clearFilters()">Clear</button>
+        </div>
+        <div id="result-count" style="font-size:12px;color:var(--muted);margin-top:4px"></div>
+      </div>
+
+      <!-- Table -->
+      <div class="card">
+        <div id="alerts-table">
+          <div style="text-align:center;padding:40px"><div class="spinner"></div></div>
+        </div>
+        <!-- Pagination -->
+        <div id="pagination" style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;align-items:center"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+<script>
+setActiveNav("history");
+
+let currentPage = 0;
+const PAGE_SIZE = 20;
+
+async function doSearch(page = 0) {
+  currentPage = page;
+  const params = new URLSearchParams();
+  const at = document.getElementById("f-alert-type").value.trim();
+  const conf = document.getElementById("f-confidence").value;
+  const tactic = document.getElementById("f-tactic").value.trim();
+  const tech = document.getElementById("f-technique").value.trim();
+  const df = document.getElementById("f-date-from").value;
+  const dt = document.getElementById("f-date-to").value;
+
+  if (at) params.set("alert_type", at);
+  if (conf) params.set("confidence", conf);
+  if (tactic) params.set("tactic", tactic);
+  if (tech) params.set("technique_id", tech);
+  if (df) params.set("date_from", df);
+  if (dt) params.set("date_to", dt + "T23:59:59");
+  params.set("skip", page * PAGE_SIZE);
+  params.set("limit", PAGE_SIZE);
+
+  const tableDiv = document.getElementById("alerts-table");
+  tableDiv.innerHTML = '<div style="text-align:center;padding:20px"><div class="spinner"></div></div>';
+
+  try {
+    const data = await API.get(`/api/alerts/search?${params.toString()}`);
+    document.getElementById("result-count").textContent = `${data.total} alert(s) found`;
+    renderTable(data.alerts);
+    renderPagination(data.total, page);
+  } catch (e) {
+    tableDiv.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>${escHtml(e.message)}</p></div>`;
+  }
+}
+
+function renderTable(alerts) {
+  const tableDiv = document.getElementById("alerts-table");
+  if (!alerts || alerts.length === 0) {
+    tableDiv.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">📋</div>
+        <p>No alerts found. <a href="/analyze">Analyze your first alert →</a></p>
+      </div>`;
+    return;
+  }
+  tableDiv.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>#</th>
+          <th>Type</th>
+          <th>Confidence</th>
+          <th>Techniques</th>
+          <th>Source IP</th>
+          <th>User</th>
+          <th>Alert Preview</th>
+          <th>Timestamp</th>
+        </tr></thead>
+        <tbody>${alerts.map(alertTableRow).join("")}</tbody>
+      </table>
+    </div>`;
+}
+
+function renderPagination(total, page) {
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const div = document.getElementById("pagination");
+  if (pages <= 1) { div.innerHTML = ""; return; }
+  let html = `<span style="color:var(--muted);font-size:12px">Page ${page + 1} of ${pages}</span>`;
+  if (page > 0) html += `<button class="btn btn-secondary" onclick="doSearch(${page - 1})">← Prev</button>`;
+  if (page < pages - 1) html += `<button class="btn btn-secondary" onclick="doSearch(${page + 1})">Next →</button>`;
+  div.innerHTML = html;
+}
+
+function clearFilters() {
+  ["f-alert-type","f-tactic","f-technique","f-date-from","f-date-to"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("f-confidence").value = "";
+  doSearch(0);
+}
+
+doSearch(0);
+</script>
+</body>
+</html>

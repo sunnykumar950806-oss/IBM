@@ -1,0 +1,1622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MITRE ATT&CK Alert Mapper</title>
+<style>
+/* ===================== RESET & BASE ===================== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #0d1117;
+  --surface:  #161b22;
+  --surface2: #1c2431;
+  --border:   #30363d;
+  --text:     #e6edf3;
+  --muted:    #8b949e;
+  --accent:   #58a6ff;
+  --accent2:  #7c5cd8;
+  --green:    #3fb950;
+  --yellow:   #d29922;
+  --orange:   #f78166;
+  --red:      #f85149;
+  --sidebar-w: 240px;
+  --navbar-h:  56px;
+}
+html, body { height: 100%; font-family: -apple-system,"Segoe UI",system-ui,sans-serif; font-size:14px; background:var(--bg); color:var(--text); line-height:1.6; }
+a { color:var(--accent); text-decoration:none; }
+a:hover { text-decoration:underline; }
+button { cursor:pointer; font-family:inherit; }
+input, select, textarea { font-family:inherit; font-size:14px; }
+ul { list-style:none; }
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:var(--bg); }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+/* ===================== LAYOUT ===================== */
+#app { display:flex; flex-direction:column; height:100vh; }
+.navbar {
+  position:fixed; top:0; left:0; right:0; height:var(--navbar-h);
+  background:var(--surface); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; padding:0 16px; gap:12px; z-index:200;
+}
+.navbar .hamburger {
+  display:none; background:none; border:none; color:var(--text); font-size:20px; padding:4px 8px; border-radius:6px;
+}
+.navbar .hamburger:hover { background:var(--surface2); }
+.nav-brand { display:flex; align-items:center; gap:10px; font-size:16px; font-weight:700; color:var(--text); }
+.nav-brand .logo-icon { width:32px; height:32px; background:linear-gradient(135deg,#58a6ff,#7c5cd8); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:16px; }
+.nav-right { margin-left:auto; display:flex; align-items:center; gap:12px; }
+.nav-search { display:flex; align-items:center; background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:6px 12px; gap:8px; }
+.nav-search input { background:none; border:none; color:var(--text); outline:none; width:200px; }
+.nav-search input::placeholder { color:var(--muted); }
+.nav-icon-btn { background:none; border:none; color:var(--muted); font-size:18px; padding:6px; border-radius:6px; position:relative; }
+.nav-icon-btn:hover { background:var(--surface2); color:var(--text); }
+.badge { position:absolute; top:2px; right:2px; width:8px; height:8px; background:var(--red); border-radius:50%; border:2px solid var(--surface); }
+.nav-avatar { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,#58a6ff,#7c5cd8); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; cursor:pointer; }
+
+.body-wrap { display:flex; flex:1; margin-top:var(--navbar-h); overflow:hidden; }
+
+/* ===================== SIDEBAR ===================== */
+.sidebar {
+  width:var(--sidebar-w); background:var(--surface); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden;
+  position:fixed; top:var(--navbar-h); bottom:0; left:0; z-index:100;
+  transition: transform 0.25s ease;
+}
+.sidebar-section-label { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; padding:16px 16px 6px; }
+.sidebar nav ul li a, .sidebar nav ul li button {
+  display:flex; align-items:center; gap:10px; padding:8px 16px;
+  color:var(--muted); border:none; background:none; width:100%; text-align:left;
+  border-radius:0; font-size:13.5px; transition:background 0.15s, color 0.15s;
+  white-space:nowrap;
+}
+.sidebar nav ul li a:hover, .sidebar nav ul li button:hover { background:var(--surface2); color:var(--text); text-decoration:none; }
+.sidebar nav ul li a.active, .sidebar nav ul li button.active { background:rgba(88,166,255,0.12); color:var(--accent); border-right:3px solid var(--accent); }
+.sidebar nav ul li a .icon, .sidebar nav ul li button .icon { font-size:16px; width:20px; text-align:center; flex-shrink:0; }
+.sidebar-footer { margin-top:auto; padding:16px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); }
+
+.main-content { flex:1; overflow-y:auto; margin-left:var(--sidebar-w); padding:24px; }
+
+/* ===================== PAGE VISIBILITY ===================== */
+.page { display:none; }
+.page.active { display:block; }
+
+/* ===================== LOGIN PAGE ===================== */
+#page-login { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); }
+.login-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:40px 36px; width:100%; max-width:400px; text-align:center;
+}
+.login-card .logo { width:56px; height:56px; background:linear-gradient(135deg,#58a6ff,#7c5cd8); border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:28px; margin:0 auto 20px; }
+.login-card h1 { font-size:22px; font-weight:700; margin-bottom:4px; }
+.login-card p { color:var(--muted); font-size:13px; margin-bottom:28px; }
+.form-group { text-align:left; margin-bottom:16px; }
+.form-group label { display:block; font-size:13px; font-weight:500; color:var(--muted); margin-bottom:6px; }
+.form-group input { width:100%; padding:10px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); outline:none; transition:border-color 0.15s; }
+.form-group input:focus { border-color:var(--accent); }
+.btn-primary { width:100%; padding:11px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:600; transition:background 0.15s; }
+.btn-primary:hover { background:#4393e0; }
+.login-hint { font-size:12px; color:var(--muted); margin-top:16px; }
+
+/* ===================== PAGE HEADER ===================== */
+.page-header { margin-bottom:24px; }
+.page-header h1 { font-size:22px; font-weight:700; }
+.page-header p { color:var(--muted); font-size:13px; margin-top:4px; }
+.breadcrumb { font-size:12px; color:var(--muted); margin-bottom:6px; }
+.breadcrumb span { color:var(--muted); }
+.breadcrumb span.current { color:var(--text); }
+
+/* ===================== CARDS ===================== */
+.card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; }
+.card-title { font-size:13px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:12px; }
+.grid { display:grid; gap:16px; }
+.grid-4 { grid-template-columns:repeat(4,1fr); }
+.grid-2 { grid-template-columns:repeat(2,1fr); }
+.grid-3 { grid-template-columns:repeat(3,1fr); }
+
+.stat-card { padding:20px; }
+.stat-card .stat-top { display:flex; align-items:flex-start; justify-content:space-between; }
+.stat-card .stat-icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+.stat-card .stat-value { font-size:28px; font-weight:700; line-height:1.1; margin:8px 0 4px; }
+.stat-card .stat-label { font-size:13px; color:var(--muted); }
+.stat-card .stat-delta { font-size:12px; display:flex; align-items:center; gap:4px; margin-top:8px; }
+.stat-card .delta-up { color:var(--green); }
+.stat-card .delta-down { color:var(--red); }
+
+/* ===================== BADGES ===================== */
+.badge-sev { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; }
+.sev-critical { background:rgba(248,81,73,0.15); color:var(--red); }
+.sev-high     { background:rgba(247,129,102,0.15); color:var(--orange); }
+.sev-medium   { background:rgba(210,153,34,0.15); color:var(--yellow); }
+.sev-low      { background:rgba(63,185,80,0.15); color:var(--green); }
+.sev-info     { background:rgba(88,166,255,0.15); color:var(--accent); }
+.badge-tactic { display:inline-flex; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; background:rgba(124,92,216,0.15); color:var(--accent2); }
+.badge-status { display:inline-flex; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; }
+.status-open  { background:rgba(248,81,73,0.15); color:var(--red); }
+.status-investigating { background:rgba(210,153,34,0.15); color:var(--yellow); }
+.status-resolved { background:rgba(63,185,80,0.15); color:var(--green); }
+.status-fp    { background:rgba(139,148,158,0.15); color:var(--muted); }
+
+/* ===================== TABLES ===================== */
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; font-size:13px; }
+thead th { text-align:left; padding:10px 12px; color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; border-bottom:1px solid var(--border); white-space:nowrap; }
+tbody tr { border-bottom:1px solid var(--border); transition:background 0.1s; }
+tbody tr:last-child { border-bottom:none; }
+tbody tr:hover { background:var(--surface2); }
+tbody td { padding:10px 12px; color:var(--text); vertical-align:middle; }
+.clickable-row { cursor:pointer; }
+
+/* ===================== TOOLBAR ===================== */
+.toolbar { display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+.toolbar-search { display:flex; align-items:center; background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:7px 12px; gap:8px; flex:1; min-width:180px; }
+.toolbar-search input { background:none; border:none; color:var(--text); outline:none; width:100%; }
+.toolbar-search input::placeholder { color:var(--muted); }
+.toolbar select { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:7px 10px; border-radius:6px; outline:none; }
+.btn { padding:8px 16px; border-radius:6px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:13px; font-weight:500; display:inline-flex; align-items:center; gap:6px; transition:background 0.15s,border-color 0.15s; }
+.btn:hover { background:var(--border); }
+.btn-accent { background:var(--accent); color:#fff; border-color:var(--accent); }
+.btn-accent:hover { background:#4393e0; }
+.btn-danger { background:var(--red); color:#fff; border-color:var(--red); }
+.btn-sm { padding:5px 12px; font-size:12px; }
+
+/* ===================== ANALYZE PAGE ===================== */
+.analyze-form .textarea-wrap { position:relative; }
+.analyze-form textarea { width:100%; height:160px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:14px; resize:vertical; outline:none; font-size:13px; line-height:1.7; }
+.analyze-form textarea:focus { border-color:var(--accent); }
+.result-card { margin-top:20px; display:none; }
+.result-card.show { display:block; }
+.result-header { display:flex; align-items:center; gap:10px; margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+.result-header .tech-badge { background:rgba(88,166,255,0.15); color:var(--accent); padding:4px 12px; border-radius:20px; font-size:13px; font-weight:600; }
+.confidence-bar-wrap { margin:8px 0; }
+.confidence-bar { height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+.confidence-fill { height:100%; border-radius:4px; transition:width 0.6s; }
+.conf-high   { background:var(--green); }
+.conf-med    { background:var(--yellow); }
+.conf-low    { background:var(--orange); }
+.result-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.detail-block { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:14px; }
+.detail-block .label { font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px; }
+.detail-block .value { font-size:13px; color:var(--text); }
+.guidance-list { list-style:none; padding:0; }
+.guidance-list li { display:flex; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; color:var(--text); }
+.guidance-list li:last-child { border-bottom:none; }
+.guidance-list li::before { content:"›"; color:var(--accent); font-weight:700; flex-shrink:0; }
+.sample-alerts { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.sample-chip { background:var(--surface2); border:1px solid var(--border); border-radius:20px; padding:4px 12px; font-size:12px; color:var(--muted); cursor:pointer; transition:all 0.15s; }
+.sample-chip:hover { border-color:var(--accent); color:var(--accent); }
+.analyze-loader { text-align:center; padding:32px; display:none; }
+.analyze-loader.show { display:block; }
+.spinner { width:36px; height:36px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; margin:0 auto 12px; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ===================== MITRE TECHNIQUES PAGE ===================== */
+.technique-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; }
+.technique-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; cursor:pointer; transition:border-color 0.15s,transform 0.1s; }
+.technique-card:hover { border-color:var(--accent); transform:translateY(-1px); }
+.technique-card .t-id { font-size:11px; font-weight:700; color:var(--accent); margin-bottom:4px; }
+.technique-card .t-name { font-size:14px; font-weight:600; margin-bottom:6px; }
+.technique-card .t-tactic { margin-bottom:8px; }
+.technique-card .t-desc { font-size:12px; color:var(--muted); line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+
+/* ===================== TACTICS PAGE ===================== */
+.tactic-row { display:grid; grid-template-columns:200px 1fr; gap:16px; margin-bottom:16px; }
+.tactic-card-left { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; text-align:center; }
+.tactic-card-left .t-num { font-size:28px; font-weight:700; color:var(--accent); }
+.tactic-card-left .t-label { font-size:12px; color:var(--muted); }
+.tactic-card-left .t-name { font-size:14px; font-weight:600; margin-top:4px; }
+.tactic-techniques { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; }
+.mini-tech { display:inline-flex; align-items:center; gap:6px; background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:4px 10px; margin:3px; font-size:12px; color:var(--text); cursor:pointer; }
+.mini-tech:hover { border-color:var(--accent); color:var(--accent); }
+
+/* ===================== SETTINGS ===================== */
+.settings-grid { display:grid; grid-template-columns:220px 1fr; gap:20px; }
+.settings-nav { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:8px; height:fit-content; }
+.settings-nav button { display:block; width:100%; text-align:left; padding:8px 12px; background:none; border:none; color:var(--muted); border-radius:6px; font-size:13px; }
+.settings-nav button:hover { background:var(--surface2); color:var(--text); }
+.settings-nav button.active { background:rgba(88,166,255,0.12); color:var(--accent); }
+.settings-panel { display:none; }
+.settings-panel.active { display:block; }
+.settings-section { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; margin-bottom:16px; }
+.settings-section h3 { font-size:15px; font-weight:600; margin-bottom:4px; }
+.settings-section p { font-size:13px; color:var(--muted); margin-bottom:16px; }
+.settings-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); }
+.settings-row:last-child { border-bottom:none; }
+.settings-row .row-info .row-title { font-size:13px; font-weight:500; }
+.settings-row .row-info .row-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+.toggle { position:relative; width:40px; height:22px; }
+.toggle input { opacity:0; width:0; height:0; }
+.toggle-slider { position:absolute; inset:0; background:var(--border); border-radius:11px; cursor:pointer; transition:background 0.2s; }
+.toggle-slider::before { content:""; position:absolute; width:16px; height:16px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform 0.2s; }
+.toggle input:checked + .toggle-slider { background:var(--accent); }
+.toggle input:checked + .toggle-slider::before { transform:translateX(18px); }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+.form-input { width:100%; padding:9px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:6px; color:var(--text); outline:none; }
+.form-input:focus { border-color:var(--accent); }
+.form-select { width:100%; padding:9px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:6px; color:var(--text); outline:none; }
+
+/* ===================== MODAL ===================== */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:500; display:none; align-items:center; justify-content:center; backdrop-filter:blur(2px); }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:24px; max-width:600px; width:90%; max-height:80vh; overflow-y:auto; position:relative; }
+.modal-close { position:absolute; top:16px; right:16px; background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; }
+.modal-close:hover { color:var(--text); }
+.modal h2 { font-size:18px; font-weight:700; margin-bottom:4px; }
+.modal .modal-id { font-size:12px; color:var(--accent); font-weight:600; margin-bottom:16px; }
+.modal-section { margin-bottom:16px; }
+.modal-section h4 { font-size:12px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:6px; }
+.modal-section p { font-size:13px; color:var(--text); line-height:1.6; }
+.modal-section ul li { font-size:13px; color:var(--text); padding:3px 0; padding-left:16px; position:relative; }
+.modal-section ul li::before { content:"•"; color:var(--accent); position:absolute; left:0; }
+.modal-tags { display:flex; gap:6px; flex-wrap:wrap; }
+.modal-tag { padding:3px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; font-size:11px; color:var(--muted); }
+
+/* ===================== ALERT DETAILS PAGE ===================== */
+.alert-detail-header { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; margin-bottom:16px; }
+.alert-detail-header h2 { font-size:18px; font-weight:700; margin-bottom:8px; }
+.alert-meta { display:flex; gap:12px; flex-wrap:wrap; align-items:center; font-size:13px; color:var(--muted); }
+.alert-meta span { display:flex; align-items:center; gap:4px; }
+.timeline { position:relative; padding-left:24px; }
+.timeline::before { content:""; position:absolute; left:6px; top:6px; bottom:0; width:2px; background:var(--border); }
+.timeline-item { position:relative; margin-bottom:20px; }
+.timeline-item::before { content:""; position:absolute; left:-21px; top:4px; width:10px; height:10px; border-radius:50%; background:var(--accent); border:2px solid var(--surface); }
+.timeline-item .t-time { font-size:11px; color:var(--muted); margin-bottom:2px; }
+.timeline-item .t-event { font-size:13px; font-weight:500; }
+.timeline-item .t-desc { font-size:12px; color:var(--muted); margin-top:2px; }
+
+/* ===================== ABOUT PAGE ===================== */
+.about-hero { background:linear-gradient(135deg,rgba(88,166,255,0.1),rgba(124,92,216,0.1)); border:1px solid var(--border); border-radius:12px; padding:40px; text-align:center; margin-bottom:24px; }
+.about-hero h1 { font-size:28px; font-weight:700; margin-bottom:8px; }
+.about-hero p { color:var(--muted); max-width:600px; margin:0 auto; }
+.feature-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
+.feature-item { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:20px; }
+.feature-item .f-icon { font-size:28px; margin-bottom:12px; }
+.feature-item h3 { font-size:14px; font-weight:600; margin-bottom:6px; }
+.feature-item p { font-size:12px; color:var(--muted); }
+
+/* ===================== CHART ===================== */
+.chart-wrap { height:220px; display:flex; align-items:flex-end; gap:6px; padding:10px 0; }
+.chart-bar-group { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; justify-content:flex-end; }
+.chart-bar { width:100%; max-width:36px; border-radius:4px 4px 0 0; transition:height 0.6s ease; position:relative; }
+.chart-bar:hover::after { content:attr(data-val); position:absolute; top:-22px; left:50%; transform:translateX(-50%); background:var(--surface2); border:1px solid var(--border); padding:2px 6px; border-radius:4px; font-size:11px; color:var(--text); white-space:nowrap; }
+.chart-label { font-size:10px; color:var(--muted); text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; width:100%; }
+
+/* ===================== DONUT CHART ===================== */
+.donut-wrap { display:flex; align-items:center; gap:24px; flex-wrap:wrap; }
+.donut-svg { flex-shrink:0; }
+.donut-legend { display:flex; flex-direction:column; gap:8px; }
+.donut-legend-item { display:flex; align-items:center; gap:8px; font-size:13px; }
+.donut-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+
+/* ===================== EMPTY STATE ===================== */
+.empty-state { text-align:center; padding:48px 24px; color:var(--muted); }
+.empty-state .empty-icon { font-size:48px; margin-bottom:12px; opacity:0.3; }
+.empty-state p { font-size:14px; }
+
+/* ===================== NOTIFICATIONS DRAWER ===================== */
+.notif-drawer { position:fixed; top:var(--navbar-h); right:0; width:320px; background:var(--surface); border-left:1px solid var(--border); bottom:0; z-index:150; transform:translateX(100%); transition:transform 0.25s; overflow-y:auto; }
+.notif-drawer.open { transform:translateX(0); }
+.notif-header { padding:16px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; font-weight:600; }
+.notif-item { padding:14px 16px; border-bottom:1px solid var(--border); cursor:pointer; }
+.notif-item:hover { background:var(--surface2); }
+.notif-item .n-title { font-size:13px; font-weight:500; }
+.notif-item .n-sub { font-size:12px; color:var(--muted); margin-top:2px; }
+.notif-item .n-time { font-size:11px; color:var(--muted); margin-top:4px; }
+.notif-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+
+/* ===================== RESPONSIVE ===================== */
+@media(max-width:1100px) {
+  .grid-4 { grid-template-columns:repeat(2,1fr); }
+}
+@media(max-width:860px) {
+  .settings-grid { grid-template-columns:1fr; }
+  .result-grid { grid-template-columns:1fr; }
+  .tactic-row { grid-template-columns:1fr; }
+  .form-row { grid-template-columns:1fr; }
+}
+@media(max-width:700px) {
+  .navbar .hamburger { display:flex; }
+  .nav-search { display:none; }
+  .sidebar { transform:translateX(-100%); }
+  .sidebar.open { transform:translateX(0); }
+  .main-content { margin-left:0; }
+  .grid-4, .grid-3, .grid-2 { grid-template-columns:1fr; }
+  .page-header h1 { font-size:18px; }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:99; display:none; }
+  .overlay.show { display:block; }
+}
+</style>
+</head>
+<body>
+
+<!-- ==================== LOGIN ==================== -->
+<div id="login-screen">
+<div id="page-login">
+  <div class="login-card">
+    <div class="logo">🛡️</div>
+    <h1>MITRE ATT&amp;CK Alert Mapper</h1>
+    <p>Security Operations Center Platform</p>
+    <div class="form-group">
+      <label>Email Address</label>
+      <input type="email" id="login-email" placeholder="analyst@soc.io" value="analyst@soc.io" />
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" value="password" />
+    </div>
+    <button class="btn-primary" onclick="doLogin()">Sign In to SOC Platform</button>
+    <div class="login-hint">Demo: analyst@soc.io / password</div>
+  </div>
+</div>
+</div>
+
+<!-- ==================== APP SHELL ==================== -->
+<div id="app-shell" style="display:none;">
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <button class="hamburger" onclick="toggleSidebar()">☰</button>
+  <div class="nav-brand">
+    <div class="logo-icon">🛡️</div>
+    <span>ATT&amp;CK Mapper</span>
+  </div>
+  <div class="nav-right">
+    <div class="nav-search">
+      <span style="color:var(--muted)">🔍</span>
+      <input type="text" placeholder="Search alerts, techniques…" id="global-search" oninput="globalSearch(this.value)" />
+    </div>
+    <button class="nav-icon-btn" onclick="toggleNotif()" title="Notifications">
+      🔔<span class="badge"></span>
+    </button>
+    <button class="nav-icon-btn" onclick="navigate('settings')" title="Settings">⚙️</button>
+    <div class="nav-avatar" onclick="navigate('settings')" title="Profile">SA</div>
+  </div>
+</nav>
+
+<!-- OVERLAY (mobile) -->
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-section-label">Main Menu</div>
+  <nav>
+    <ul>
+      <li><button onclick="navigate('dashboard')" id="nav-dashboard" class="active"><span class="icon">📊</span>Dashboard</button></li>
+      <li><button onclick="navigate('analyze')"   id="nav-analyze"><span class="icon">🔍</span>Analyze Alert</button></li>
+      <li><button onclick="navigate('history')"   id="nav-history"><span class="icon">📋</span>Alert History</button></li>
+    </ul>
+  </nav>
+  <div class="sidebar-section-label">Intelligence</div>
+  <nav>
+    <ul>
+      <li><button onclick="navigate('techniques')" id="nav-techniques"><span class="icon">⚔️</span>Techniques</button></li>
+      <li><button onclick="navigate('tactics')"    id="nav-tactics"><span class="icon">🗺️</span>Tactics</button></li>
+    </ul>
+  </nav>
+  <div class="sidebar-section-label">System</div>
+  <nav>
+    <ul>
+      <li><button onclick="navigate('settings')" id="nav-settings"><span class="icon">⚙️</span>Settings</button></li>
+      <li><button onclick="navigate('about')"    id="nav-about"><span class="icon">ℹ️</span>About</button></li>
+    </ul>
+  </nav>
+  <div class="sidebar-footer">
+    <div style="font-weight:600;color:var(--text)">SOC Analyst</div>
+    <div style="font-size:11px">analyst@soc.io</div>
+    <div style="margin-top:8px">
+      <button class="btn btn-sm" onclick="doLogout()" style="width:100%;justify-content:center">Sign Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT AREA -->
+<div class="body-wrap">
+<div class="main-content" id="main-content">
+
+  <!-- ==================== DASHBOARD ==================== -->
+  <div class="page active" id="page-dashboard">
+    <div class="page-header">
+      <div class="breadcrumb"><span class="current">Dashboard</span></div>
+      <h1>Security Operations Dashboard</h1>
+      <p>Real-time threat intelligence mapped to MITRE ATT&amp;CK framework</p>
+    </div>
+
+    <div class="grid grid-4" style="margin-bottom:16px">
+      <div class="card stat-card">
+        <div class="stat-top">
+          <div>
+            <div class="stat-label">Total Alerts</div>
+            <div class="stat-value">1,284</div>
+          </div>
+          <div class="stat-icon" style="background:rgba(88,166,255,0.12);color:var(--accent)">📋</div>
+        </div>
+        <div class="stat-delta delta-up">▲ 12% vs last week</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-top">
+          <div>
+            <div class="stat-label">Critical / High</div>
+            <div class="stat-value" style="color:var(--red)">47</div>
+          </div>
+          <div class="stat-icon" style="background:rgba(248,81,73,0.12);color:var(--red)">🚨</div>
+        </div>
+        <div class="stat-delta delta-down">▲ 8 new in 24h</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-top">
+          <div>
+            <div class="stat-label">Detected Techniques</div>
+            <div class="stat-value" style="color:var(--accent2)">38</div>
+          </div>
+          <div class="stat-icon" style="background:rgba(124,92,216,0.12);color:var(--accent2)">⚔️</div>
+        </div>
+        <div class="stat-delta delta-up">▲ 5 new this month</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-top">
+          <div>
+            <div class="stat-label">Avg. Confidence</div>
+            <div class="stat-value" style="color:var(--green)">84%</div>
+          </div>
+          <div class="stat-icon" style="background:rgba(63,185,80,0.12);color:var(--green)">✅</div>
+        </div>
+        <div class="stat-delta delta-up">▲ 2% improvement</div>
+      </div>
+    </div>
+
+    <div class="grid grid-2" style="margin-bottom:16px">
+      <!-- Tactic Bar Chart -->
+      <div class="card">
+        <div class="card-title">Alerts by MITRE Tactic</div>
+        <div class="chart-wrap" id="tactic-chart"></div>
+      </div>
+      <!-- Severity Donut -->
+      <div class="card">
+        <div class="card-title">Alert Severity Distribution</div>
+        <div class="donut-wrap" style="padding:10px 0;height:220px;align-items:center;">
+          <svg class="donut-svg" width="130" height="130" viewBox="0 0 42 42" id="donut-svg">
+            <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#f85149" stroke-width="6"
+              stroke-dasharray="15 85" stroke-dashoffset="25" />
+            <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#f78166" stroke-width="6"
+              stroke-dasharray="22 78" stroke-dashoffset="10" />
+            <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#d29922" stroke-width="6"
+              stroke-dasharray="28 72" stroke-dashoffset="-12" />
+            <circle cx="21" cy="21" r="15.9" fill="transparent" stroke="#3fb950" stroke-width="6"
+              stroke-dasharray="35 65" stroke-dashoffset="-40" />
+            <text x="21" y="23" text-anchor="middle" fill="#e6edf3" font-size="5" font-weight="bold">1,284</text>
+          </svg>
+          <div class="donut-legend">
+            <div class="donut-legend-item"><div class="donut-dot" style="background:var(--red)"></div>Critical — 192 (15%)</div>
+            <div class="donut-legend-item"><div class="donut-dot" style="background:var(--orange)"></div>High — 283 (22%)</div>
+            <div class="donut-legend-item"><div class="donut-dot" style="background:var(--yellow)"></div>Medium — 359 (28%)</div>
+            <div class="donut-legend-item"><div class="donut-dot" style="background:var(--green)"></div>Low — 450 (35%)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Alerts -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div class="card-title" style="margin:0">Recent Alerts</div>
+        <button class="btn btn-sm" onclick="navigate('history')">View All →</button>
+      </div>
+      <div class="table-wrap">
+        <table id="dashboard-table">
+          <thead>
+            <tr>
+              <th>Alert ID</th>
+              <th>Alert Name</th>
+              <th>Severity</th>
+              <th>Technique</th>
+              <th>Tactic</th>
+              <th>Source</th>
+              <th>Time</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="dashboard-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /dashboard -->
+
+  <!-- ==================== ANALYZE ==================== -->
+  <div class="page" id="page-analyze">
+    <div class="page-header">
+      <div class="breadcrumb"><span>Dashboard</span> / <span class="current">Analyze Alert</span></div>
+      <h1>Analyze Security Alert</h1>
+      <p>Paste or type a security alert to map it to MITRE ATT&amp;CK techniques and receive investigation guidance.</p>
+    </div>
+
+    <div class="grid grid-2">
+      <div>
+        <div class="card analyze-form">
+          <div class="card-title">Alert Input</div>
+          <div class="textarea-wrap">
+            <textarea id="alert-input" placeholder="Paste your security alert here…
+
+Example: PowerShell encoded command executed on DESKTOP-X9K2. Process spawned by svchost.exe. Suspicious base64 string detected in command line arguments."></textarea>
+          </div>
+          <div style="margin-top:10px">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Quick samples:</div>
+            <div class="sample-alerts" id="sample-alerts"></div>
+          </div>
+          <div style="display:flex;gap:10px;margin-top:14px">
+            <button class="btn btn-accent" onclick="analyzeAlert()" style="flex:1">🔍 Analyze Alert</button>
+            <button class="btn" onclick="document.getElementById('alert-input').value='';hideResult()">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="analyze-loader" id="analyze-loader">
+          <div class="spinner"></div>
+          <p style="color:var(--muted)">Analyzing alert against MITRE ATT&amp;CK framework…</p>
+        </div>
+        <div class="card result-card" id="result-card">
+          <div class="result-header">
+            <div style="flex:1">
+              <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Matched Technique</div>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <span class="tech-badge" id="r-tech-id">T1059.001</span>
+                <span style="font-size:16px;font-weight:700" id="r-tech-name">Command and Scripting Interpreter: PowerShell</span>
+              </div>
+            </div>
+            <div id="r-severity-badge"></div>
+          </div>
+
+          <div class="result-grid">
+            <div class="detail-block">
+              <div class="label">Tactic</div>
+              <div class="value"><span class="badge-tactic" id="r-tactic">Execution</span></div>
+            </div>
+            <div class="detail-block">
+              <div class="label">Confidence</div>
+              <div class="confidence-bar-wrap">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                  <span style="font-size:12px;color:var(--muted)">Match score</span>
+                  <span style="font-size:13px;font-weight:700" id="r-conf-pct">—</span>
+                </div>
+                <div class="confidence-bar"><div class="confidence-fill" id="r-conf-bar" style="width:0%"></div></div>
+              </div>
+            </div>
+            <div class="detail-block" style="grid-column:1/-1">
+              <div class="label">Explanation</div>
+              <div class="value" id="r-explanation">—</div>
+            </div>
+            <div class="detail-block" style="grid-column:1/-1">
+              <div class="label">ATT&amp;CK Description</div>
+              <div class="value" id="r-attack-desc">—</div>
+            </div>
+          </div>
+
+          <div style="margin-top:16px">
+            <div class="label" style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px">🔎 Investigation Guidance</div>
+            <ul class="guidance-list" id="r-guidance"></ul>
+          </div>
+
+          <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn btn-accent btn-sm" onclick="saveToHistory()">💾 Save to History</button>
+            <button class="btn btn-sm" onclick="navigate('techniques')">View All Techniques</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /analyze -->
+
+  <!-- ==================== HISTORY ==================== -->
+  <div class="page" id="page-history">
+    <div class="page-header">
+      <div class="breadcrumb"><span>Dashboard</span> / <span class="current">Alert History</span></div>
+      <h1>Alert History</h1>
+      <p>All ingested and analyzed security alerts with MITRE mapping.</p>
+    </div>
+    <div class="card">
+      <div class="toolbar">
+        <div class="toolbar-search">
+          <span style="color:var(--muted)">🔍</span>
+          <input type="text" placeholder="Search alerts…" id="history-search" oninput="filterHistory()" />
+        </div>
+        <select id="history-sev" onchange="filterHistory()">
+          <option value="">All Severities</option>
+          <option>Critical</option>
+          <option>High</option>
+          <option>Medium</option>
+          <option>Low</option>
+        </select>
+        <select id="history-status" onchange="filterHistory()">
+          <option value="">All Statuses</option>
+          <option>Open</option>
+          <option>Investigating</option>
+          <option>Resolved</option>
+          <option>False Positive</option>
+        </select>
+        <select id="history-tactic" onchange="filterHistory()">
+          <option value="">All Tactics</option>
+        </select>
+        <button class="btn btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Alert ID</th>
+              <th>Name</th>
+              <th>Severity</th>
+              <th>Technique</th>
+              <th>Tactic</th>
+              <th>Confidence</th>
+              <th>Source</th>
+              <th>Time</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:13px;color:var(--muted)">
+        <span id="history-count">Showing 0 alerts</span>
+        <div style="display:flex;gap:8px" id="pagination"></div>
+      </div>
+    </div>
+  </div><!-- /history -->
+
+  <!-- ==================== ALERT DETAILS ==================== -->
+  <div class="page" id="page-alert-detail">
+    <div class="page-header">
+      <div class="breadcrumb"><span onclick="navigate('history')" style="cursor:pointer">Alert History</span> / <span class="current" id="detail-breadcrumb">Alert Details</span></div>
+      <h1 id="detail-title">Alert Details</h1>
+    </div>
+    <div class="alert-detail-header">
+      <h2 id="ad-name">—</h2>
+      <div class="alert-meta">
+        <span id="ad-severity"></span>
+        <span>🕐 <span id="ad-time">—</span></span>
+        <span>📡 <span id="ad-source">—</span></span>
+        <span>🏷️ <span id="ad-status"></span></span>
+      </div>
+    </div>
+    <div class="grid grid-2" style="margin-bottom:16px">
+      <div class="card">
+        <div class="card-title">MITRE ATT&amp;CK Mapping</div>
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Technique</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="tech-badge" id="ad-tech-id" style="background:rgba(88,166,255,0.15);color:var(--accent);padding:4px 12px;border-radius:20px;font-size:13px;font-weight:600">—</span>
+            <span style="font-weight:600" id="ad-tech-name">—</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Tactic</div>
+            <span class="badge-tactic" id="ad-tactic">—</span>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Confidence</div>
+            <div style="font-weight:700;color:var(--green)" id="ad-confidence">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Alert Metadata</div>
+        <table style="font-size:13px">
+          <tbody id="ad-meta-table"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title">Event Timeline</div>
+        <div class="timeline" id="ad-timeline"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Investigation Guidance</div>
+        <ul class="guidance-list" id="ad-guidance"></ul>
+        <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-accent" onclick="markStatus('Resolved')">✅ Mark Resolved</button>
+          <button class="btn btn-sm" onclick="markStatus('Investigating')">🔍 Investigate</button>
+          <button class="btn btn-sm" onclick="markStatus('False Positive')">🚫 False Positive</button>
+        </div>
+      </div>
+    </div>
+  </div><!-- /alert-detail -->
+
+  <!-- ==================== TECHNIQUES ==================== -->
+  <div class="page" id="page-techniques">
+    <div class="page-header">
+      <div class="breadcrumb"><span class="current">Techniques</span></div>
+      <h1>MITRE ATT&amp;CK Techniques</h1>
+      <p>Browse techniques observed in your environment, mapped to ATT&amp;CK IDs.</p>
+    </div>
+    <div class="toolbar" style="margin-bottom:16px">
+      <div class="toolbar-search">
+        <span style="color:var(--muted)">🔍</span>
+        <input type="text" placeholder="Search techniques…" id="tech-search" oninput="filterTechniques()" />
+      </div>
+      <select id="tech-tactic-filter" onchange="filterTechniques()">
+        <option value="">All Tactics</option>
+      </select>
+    </div>
+    <div class="technique-grid" id="technique-grid"></div>
+  </div><!-- /techniques -->
+
+  <!-- ==================== TACTICS ==================== -->
+  <div class="page" id="page-tactics">
+    <div class="page-header">
+      <div class="breadcrumb"><span class="current">Tactics</span></div>
+      <h1>MITRE ATT&amp;CK Tactics</h1>
+      <p>The 14 MITRE ATT&amp;CK Enterprise tactics and their associated techniques.</p>
+    </div>
+    <div id="tactics-content"></div>
+  </div><!-- /tactics -->
+
+  <!-- ==================== SETTINGS ==================== -->
+  <div class="page" id="page-settings">
+    <div class="page-header">
+      <div class="breadcrumb"><span class="current">Settings</span></div>
+      <h1>Settings</h1>
+      <p>Configure platform preferences, integrations, and user profile.</p>
+    </div>
+    <div class="settings-grid">
+      <div class="settings-nav" id="settings-nav">
+        <button class="active" onclick="showSettingsPanel('general',this)">General</button>
+        <button onclick="showSettingsPanel('notifications',this)">Notifications</button>
+        <button onclick="showSettingsPanel('integrations',this)">Integrations</button>
+        <button onclick="showSettingsPanel('profile',this)">Profile</button>
+        <button onclick="showSettingsPanel('api',this)">API Keys</button>
+      </div>
+      <div>
+        <!-- General -->
+        <div class="settings-panel active" id="sp-general">
+          <div class="settings-section">
+            <h3>Display Preferences</h3>
+            <p>Customize how the platform looks and behaves.</p>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">Dark Theme</div><div class="row-sub">Use dark color scheme (default)</div></div>
+              <label class="toggle"><input type="checkbox" checked /><span class="toggle-slider"></span></label>
+            </div>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">Compact Tables</div><div class="row-sub">Reduce row height in alert tables</div></div>
+              <label class="toggle"><input type="checkbox" /><span class="toggle-slider"></span></label>
+            </div>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">Auto-refresh Dashboard</div><div class="row-sub">Refresh every 60 seconds</div></div>
+              <label class="toggle"><input type="checkbox" checked /><span class="toggle-slider"></span></label>
+            </div>
+          </div>
+          <div class="settings-section">
+            <h3>Default Filters</h3>
+            <p>Set default filter values for alert history view.</p>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <div style="flex:1;min-width:140px">
+                <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Default Severity</div>
+                <select class="form-select"><option>All</option><option>Critical</option><option>High</option><option>Medium</option></select>
+              </div>
+              <div style="flex:1;min-width:140px">
+                <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Default Status</div>
+                <select class="form-select"><option>All</option><option>Open</option><option>Investigating</option></select>
+              </div>
+            </div>
+            <button class="btn btn-accent btn-sm" style="margin-top:14px" onclick="showToast('Settings saved!')">Save Preferences</button>
+          </div>
+        </div>
+
+        <!-- Notifications -->
+        <div class="settings-panel" id="sp-notifications">
+          <div class="settings-section">
+            <h3>Alert Notifications</h3>
+            <p>Configure how you receive alerts and system notifications.</p>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">Critical Alert Emails</div><div class="row-sub">Receive email for Critical severity alerts</div></div>
+              <label class="toggle"><input type="checkbox" checked /><span class="toggle-slider"></span></label>
+            </div>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">In-App Notifications</div><div class="row-sub">Show badge and drawer notifications</div></div>
+              <label class="toggle"><input type="checkbox" checked /><span class="toggle-slider"></span></label>
+            </div>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">Slack Integration</div><div class="row-sub">Post alerts to #soc-alerts channel</div></div>
+              <label class="toggle"><input type="checkbox" /><span class="toggle-slider"></span></label>
+            </div>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">Weekly Report</div><div class="row-sub">Email weekly threat summary every Monday</div></div>
+              <label class="toggle"><input type="checkbox" checked /><span class="toggle-slider"></span></label>
+            </div>
+            <button class="btn btn-accent btn-sm" style="margin-top:14px" onclick="showToast('Notification settings saved!')">Save</button>
+          </div>
+        </div>
+
+        <!-- Integrations -->
+        <div class="settings-panel" id="sp-integrations">
+          <div class="settings-section">
+            <h3>SIEM Integrations</h3>
+            <p>Connect to external security platforms.</p>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">Splunk SIEM</div><div class="row-sub">Status: Connected · Last sync 2m ago</div></div>
+              <button class="btn btn-sm" style="color:var(--green)">● Active</button>
+            </div>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">CrowdStrike Falcon</div><div class="row-sub">Status: Not configured</div></div>
+              <button class="btn btn-sm btn-accent" onclick="showToast('Opening CrowdStrike setup…')">Connect</button>
+            </div>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">Microsoft Sentinel</div><div class="row-sub">Status: Not configured</div></div>
+              <button class="btn btn-sm btn-accent" onclick="showToast('Opening Sentinel setup…')">Connect</button>
+            </div>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">IBM QRadar</div><div class="row-sub">Status: Not configured</div></div>
+              <button class="btn btn-sm btn-accent" onclick="showToast('Opening QRadar setup…')">Connect</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Profile -->
+        <div class="settings-panel" id="sp-profile">
+          <div class="settings-section">
+            <h3>User Profile</h3>
+            <p>Update your personal information and credentials.</p>
+            <div class="form-row">
+              <div>
+                <div style="font-size:12px;color:var(--muted);margin-bottom:6px">First Name</div>
+                <input class="form-input" value="SOC" />
+              </div>
+              <div>
+                <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Last Name</div>
+                <input class="form-input" value="Analyst" />
+              </div>
+            </div>
+            <div style="margin-bottom:12px">
+              <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Email</div>
+              <input class="form-input" value="analyst@soc.io" style="width:100%" />
+            </div>
+            <div style="margin-bottom:12px">
+              <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Role</div>
+              <select class="form-select" style="width:100%"><option>Tier 1 Analyst</option><option>Tier 2 Analyst</option><option>SOC Lead</option><option>Threat Hunter</option></select>
+            </div>
+            <button class="btn btn-accent btn-sm" onclick="showToast('Profile updated!')">Save Profile</button>
+          </div>
+        </div>
+
+        <!-- API -->
+        <div class="settings-panel" id="sp-api">
+          <div class="settings-section">
+            <h3>API Keys</h3>
+            <p>Manage API keys for external integrations.</p>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">VirusTotal API</div><div class="row-sub">sk-vt-••••••••••••••••3f2a</div></div>
+              <button class="btn btn-sm" onclick="showToast('Key revealed!')">Show</button>
+            </div>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">Shodan API</div><div class="row-sub">Not configured</div></div>
+              <button class="btn btn-sm btn-accent" onclick="showToast('Add API key dialog…')">Add</button>
+            </div>
+            <div class="settings-row">
+              <div class="row-info"><div class="row-title">AbuseIPDB</div><div class="row-sub">sk-ab-••••••••••••••••8c1d</div></div>
+              <button class="btn btn-sm" onclick="showToast('Key revealed!')">Show</button>
+            </div>
+            <button class="btn btn-accent btn-sm" style="margin-top:14px" onclick="showToast('New API key generated!')">+ Generate New Key</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /settings -->
+
+  <!-- ==================== ABOUT ==================== -->
+  <div class="page" id="page-about">
+    <div class="about-hero">
+      <div style="font-size:48px;margin-bottom:12px">🛡️</div>
+      <h1>MITRE ATT&amp;CK Alert Mapper</h1>
+      <p>A professional Security Operations Center platform for mapping security alerts to the MITRE ATT&amp;CK framework, enabling faster threat analysis and incident response.</p>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:20px;flex-wrap:wrap">
+        <span class="badge-sev sev-info" style="padding:6px 14px;font-size:13px">v2.4.1</span>
+        <span class="badge-sev sev-low" style="padding:6px 14px;font-size:13px">ATT&amp;CK v14</span>
+        <span class="badge-sev sev-medium" style="padding:6px 14px;font-size:13px">Enterprise Matrix</span>
+      </div>
+    </div>
+
+    <div class="feature-list" style="margin-bottom:24px">
+      <div class="feature-item">
+        <div class="f-icon">🔍</div>
+        <h3>Alert Analysis</h3>
+        <p>Paste any security alert and receive instant MITRE ATT&amp;CK technique mapping with confidence scoring and investigation guidance.</p>
+      </div>
+      <div class="feature-item">
+        <div class="f-icon">🗺️</div>
+        <h3>Tactic Coverage</h3>
+        <p>Full coverage of all 14 MITRE ATT&amp;CK Enterprise tactics from Reconnaissance through Impact.</p>
+      </div>
+      <div class="feature-item">
+        <div class="f-icon">📊</div>
+        <h3>SOC Dashboard</h3>
+        <p>Real-time dashboard with severity distribution, tactic frequency, and trending threat intelligence.</p>
+      </div>
+      <div class="feature-item">
+        <div class="f-icon">📋</div>
+        <h3>Alert History</h3>
+        <p>Full audit trail of analyzed alerts with filtering, sorting, status tracking, and CSV export.</p>
+      </div>
+      <div class="feature-item">
+        <div class="f-icon">⚔️</div>
+        <h3>Technique Library</h3>
+        <p>Browse all ATT&amp;CK techniques with descriptions, detection methods, and mitigation strategies.</p>
+      </div>
+      <div class="feature-item">
+        <div class="f-icon">🔗</div>
+        <h3>SIEM Integration</h3>
+        <p>Connects with Splunk, Microsoft Sentinel, CrowdStrike Falcon, and IBM QRadar for automated ingestion.</p>
+      </div>
+    </div>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-title">Framework Reference</div>
+        <table style="font-size:13px">
+          <tbody>
+            <tr><td style="color:var(--muted);padding:6px 0">Framework</td><td>MITRE ATT&amp;CK Enterprise v14</td></tr>
+            <tr><td style="color:var(--muted);padding:6px 0">Tactics</td><td>14 Enterprise Tactics</td></tr>
+            <tr><td style="color:var(--muted);padding:6px 0">Techniques</td><td>193+ Techniques</td></tr>
+            <tr><td style="color:var(--muted);padding:6px 0">Sub-Techniques</td><td>401+ Sub-Techniques</td></tr>
+            <tr><td style="color:var(--muted);padding:6px 0">Last Updated</td><td>October 2024</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <div class="card-title">System Information</div>
+        <table style="font-size:13px">
+          <tbody>
+            <tr><td style="color:var(--muted);padding:6px 0">Platform</td><td>Web / Single Page Application</td></tr>
+            <tr><td style="color:var(--muted);padding:6px 0">Build</td><td>2024.12 Production</td></tr>
+            <tr><td style="color:var(--muted);padding:6px 0">License</td><td>Enterprise SOC License</td></tr>
+            <tr><td style="color:var(--muted);padding:6px 0">Support</td><td>support@attackmapper.io</td></tr>
+            <tr><td style="color:var(--muted);padding:6px 0">Uptime</td><td style="color:var(--green)">● 99.98%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /about -->
+
+</div><!-- /main-content -->
+</div><!-- /body-wrap -->
+
+<!-- Notifications Drawer -->
+<div class="notif-drawer" id="notif-drawer">
+  <div class="notif-header">
+    <span>Notifications</span>
+    <button style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px" onclick="toggleNotif()">✕</button>
+  </div>
+  <div id="notif-list"></div>
+</div>
+
+<!-- Technique Modal -->
+<div class="modal-overlay" id="tech-modal" onclick="closeTechModal(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('tech-modal').classList.remove('open')">✕</button>
+    <div class="modal-id" id="modal-tech-id">—</div>
+    <h2 id="modal-tech-name">—</h2>
+    <div class="modal-section">
+      <h4>Tactic</h4>
+      <p><span class="badge-tactic" id="modal-tech-tactic">—</span></p>
+    </div>
+    <div class="modal-section">
+      <h4>Description</h4>
+      <p id="modal-tech-desc">—</p>
+    </div>
+    <div class="modal-section">
+      <h4>Detection</h4>
+      <p id="modal-tech-detection">—</p>
+    </div>
+    <div class="modal-section">
+      <h4>Mitigations</h4>
+      <ul id="modal-tech-mitigations"></ul>
+    </div>
+    <div class="modal-section">
+      <h4>Data Sources</h4>
+      <div class="modal-tags" id="modal-tech-sources"></div>
+    </div>
+    <div style="margin-top:16px">
+      <button class="btn btn-accent btn-sm" onclick="useForAnalysis()">Use in Analysis →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" style="position:fixed;bottom:24px;right:24px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 20px;font-size:13px;color:var(--text);z-index:999;opacity:0;transform:translateY(10px);transition:all 0.25s;pointer-events:none;max-width:300px"></div>
+
+</div><!-- /app-shell -->
+
+<script>
+// ============================================================
+//  DATA
+// ============================================================
+const TACTICS = [
+  {id:"TA0043",name:"Reconnaissance",    desc:"The adversary is trying to gather information about your organization.", color:"#58a6ff"},
+  {id:"TA0042",name:"Resource Development",desc:"The adversary is trying to establish resources for future operations.", color:"#7c5cd8"},
+  {id:"TA0001",name:"Initial Access",    desc:"The adversary is trying to get into your network.", color:"#f85149"},
+  {id:"TA0002",name:"Execution",         desc:"The adversary is trying to run malicious code.", color:"#f78166"},
+  {id:"TA0003",name:"Persistence",       desc:"The adversary is trying to maintain their foothold.", color:"#d29922"},
+  {id:"TA0004",name:"Privilege Escalation",desc:"The adversary is trying to gain higher-level permissions.", color:"#a371f7"},
+  {id:"TA0005",name:"Defense Evasion",   desc:"The adversary is trying to avoid being detected.", color:"#3fb950"},
+  {id:"TA0006",name:"Credential Access", desc:"The adversary is trying to steal account names and passwords.", color:"#ffa657"},
+  {id:"TA0007",name:"Discovery",         desc:"The adversary is trying to figure out your environment.", color:"#79c0ff"},
+  {id:"TA0008",name:"Lateral Movement",  desc:"The adversary is trying to move through your environment.", color:"#ff7b72"},
+  {id:"TA0009",name:"Collection",        desc:"The adversary is trying to gather data of interest.", color:"#56d364"},
+  {id:"TA0011",name:"Command and Control",desc:"The adversary is trying to communicate with compromised systems.", color:"#e3b341"},
+  {id:"TA0010",name:"Exfiltration",      desc:"The adversary is trying to steal data.", color:"#ff6e96"},
+  {id:"TA0040",name:"Impact",            desc:"The adversary is trying to manipulate, interrupt, or destroy systems.", color:"#f85149"},
+];
+
+const TECHNIQUES = [
+  {id:"T1059.001",name:"PowerShell",tactic:"Execution",desc:"Adversaries may abuse PowerShell commands and scripts for execution. PowerShell is a powerful interactive command-line interface and scripting environment included in the Windows OS.",detection:"Monitor for PowerShell execution with encoded commands, suspicious download cradles, or unusual parent processes.",mitigations:["Disable PowerShell v2","Apply PowerShell Constrained Language Mode","Enable Script Block Logging","Restrict execution policy"],sources:["Process monitoring","Command-line logging","PowerShell logs"]},
+  {id:"T1078",name:"Valid Accounts",tactic:"Initial Access",desc:"Adversaries may obtain and abuse credentials of existing accounts as a means of gaining Initial Access, Persistence, Privilege Escalation, or Defense Evasion.",detection:"Monitor for anomalous logon activity such as off-hours access, logins from unusual locations, or credential use on multiple systems.",mitigations:["MFA enforcement","Privileged Access Management","Account audit logging","Password policy enforcement"],sources:["Authentication logs","User monitoring","Network traffic"]},
+  {id:"T1055",name:"Process Injection",tactic:"Privilege Escalation",desc:"Adversaries may inject code into processes in order to evade process-based defenses or to elevate privileges.",detection:"Monitor for API calls such as VirtualAllocEx, WriteProcessMemory, CreateRemoteThread, and SetThreadContext.",mitigations:["Credential Access Protection","Behavior prevention on endpoint","Application isolation"],sources:["Process monitoring","API monitoring","Memory analysis"]},
+  {id:"T1003",name:"OS Credential Dumping",tactic:"Credential Access",desc:"Adversaries may attempt to dump credentials to obtain account login and credential material from the OS and software.",detection:"Monitor for LSASS process access, use of tools like Mimikatz, or dumping of SAM/NTDS.dit files.",mitigations:["Credential Guard","Protected Users group","Privileged Access Workstations"],sources:["Process monitoring","Windows event logs","AV/EDR telemetry"]},
+  {id:"T1566.001",name:"Spearphishing Attachment",tactic:"Initial Access",desc:"Adversaries may send spearphishing emails with a malicious attachment in an attempt to gain access to victim systems.",detection:"Monitor for malicious file attachments in email, macro execution from Office documents, or unusual child processes of Office applications.",mitigations:["Anti-phishing training","Email filtering","Disable macros by default"],sources:["Email gateway logs","Endpoint detection","File system monitoring"]},
+  {id:"T1486",name:"Data Encrypted for Impact",tactic:"Impact",desc:"Adversaries may encrypt data on target systems or on large numbers of systems in a network to interrupt availability to system and network resources.",detection:"Monitor for suspicious file modification activity, unusual encryption operations, or volume shadow copy deletion.",mitigations:["Offline backups","Network segmentation","Endpoint detection and response"],sources:["File monitoring","Process monitoring","Windows event logs"]},
+  {id:"T1021.001",name:"Remote Desktop Protocol",tactic:"Lateral Movement",desc:"Adversaries may use Valid Accounts to log into a computer using the Remote Desktop Protocol (RDP) to move laterally.",detection:"Monitor for RDP connections from unusual sources, off-hours access, or first-time connections between hosts.",mitigations:["Disable RDP where not required","Network Access Control","MFA for remote access"],sources:["Network flow data","Authentication logs","Process monitoring"]},
+  {id:"T1071.001",name:"Web Protocols",tactic:"Command and Control",desc:"Adversaries may communicate using application layer protocols associated with web traffic to avoid detection/network filtering.",detection:"Analyze network traffic for unusual HTTP/HTTPS patterns, large data volumes, or connections to suspicious domains.",mitigations:["Network intrusion detection","Web proxy filtering","SSL inspection"],sources:["Network traffic","DNS logs","Proxy logs"]},
+  {id:"T1082",name:"System Information Discovery",tactic:"Discovery",desc:"Adversaries may attempt to get detailed information about the OS and hardware, including version, patches, hotfixes, service packs, and architecture.",detection:"Monitor for commands such as systeminfo, ver, or queries to HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion.",mitigations:["Network segmentation","Least privilege"],sources:["Process monitoring","Command-line logging","Registry monitoring"]},
+  {id:"T1053.005",name:"Scheduled Task",tactic:"Persistence",desc:"Adversaries may abuse the Windows Task Scheduler to perform task scheduling for initial or recurring execution of malicious code.",detection:"Monitor for creation of new scheduled tasks, tasks running from unusual paths, or encoded PowerShell in task actions.",mitigations:["Privilege access management","Audit scheduled tasks","Restrict task creation"],sources:["Windows event logs","Process monitoring","File monitoring"]},
+  {id:"T1562.001",name:"Disable or Modify Tools",tactic:"Defense Evasion",desc:"Adversaries may disable security tools to avoid possible detection. This can include disabling AV, EDR, or firewall software.",detection:"Monitor for termination of security software processes, modification of AV exclusions, or changes to firewall rules.",mitigations:["Privileged access management","Application isolation","Monitor tool state"],sources:["Process monitoring","Windows event logs","Registry monitoring"]},
+  {id:"T1041",name:"Exfiltration Over C2 Channel",tactic:"Exfiltration",desc:"Adversaries may steal data by exfiltrating it over an existing command and control channel.",detection:"Monitor for large outbound data volumes, data exfil over existing C2 protocols, or use of encoding/compression.",mitigations:["Network intrusion detection","Data loss prevention","Egress filtering"],sources:["Network traffic","Proxy logs","Endpoint telemetry"]},
+  {id:"T1087",name:"Account Discovery",tactic:"Discovery",desc:"Adversaries may attempt to get a listing of local system or domain accounts.",detection:"Monitor for net user, net group, dsquery commands or LDAP queries enumerating accounts.",mitigations:["Network segmentation","Least privilege"],sources:["Process monitoring","Command-line logging","Network traffic"]},
+  {id:"T1135",name:"Network Share Discovery",tactic:"Discovery",desc:"Adversaries may look for folders and drives shared on remote systems as a means of identifying sources of information to gather.",detection:"Monitor for net share, net view commands or SMB enumeration traffic.",mitigations:["Network segmentation","Audit network shares"],sources:["Process monitoring","Network traffic","SMB logs"]},
+  {id:"T1105",name:"Ingress Tool Transfer",tactic:"Command and Control",desc:"Adversaries may transfer tools or other files from an external system into a compromised environment.",detection:"Monitor for unusual download activity, file transfer tools, or unexpected inbound connections.",mitigations:["Network intrusion detection","Application control","Egress filtering"],sources:["Network traffic","Process monitoring","File monitoring"]},
+  {id:"T1027",name:"Obfuscated Files or Information",tactic:"Defense Evasion",desc:"Adversaries may attempt to make an executable or file difficult to discover or analyze by encrypting, encoding, or otherwise obfuscating its contents on the system.",detection:"Monitor for encoded scripts, large base64 strings in commands, or packed executables.",mitigations:["Antivirus/antimalware","Behavior prevention on endpoint"],sources:["Process monitoring","File monitoring","AV telemetry"]},
+];
+
+const ALERT_NAMES = [
+  "PowerShell Encoded Command Execution","Suspicious LSASS Memory Access","Lateral Movement via RDP Detected",
+  "Spearphishing Email with Malicious Attachment","Ransomware File Encryption Activity","C2 Beaconing over HTTPS Detected",
+  "Scheduled Task Created by Non-Admin","Security Tool Tampering Detected","Large Volume Data Exfiltration",
+  "Domain Account Enumeration via LDAP","Valid Account Misuse - Off-Hours Login","Process Injection into svchost.exe",
+  "Network Share Discovery Activity","Ingress Tool Transfer Detected","Obfuscated PowerShell Script Block",
+  "Mimikatz Credential Dumping","WMI Persistent Event Subscription","Registry Run Key Modification",
+  "DNS Tunneling C2 Communication","Pass-the-Hash Authentication Attempt","Shadow Copy Deletion",
+  "BITS Job for Malware Delivery","AppLocker Bypass Attempt","Kerberoasting Attack Detected",
+];
+const SOURCES = ["Splunk SIEM","CrowdStrike Falcon","Microsoft Defender","Palo Alto Cortex","IBM QRadar","Elastic SIEM","Carbon Black"];
+const STATUSES = ["Open","Investigating","Resolved","False Positive"];
+const SEV_LIST  = ["Critical","High","Medium","Low"];
+
+function randItem(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+function randInt(a,b)  { return Math.floor(Math.random()*(b-a+1))+a; }
+
+function genAlerts(n=80) {
+  const alerts = [];
+  for (let i=0;i<n;i++) {
+    const tech = randItem(TECHNIQUES);
+    const sev = randItem(SEV_LIST);
+    const d = new Date(Date.now() - randInt(0,72)*3600000 - randInt(0,59)*60000);
+    alerts.push({
+      id: `ALT-${String(1000+i).padStart(4,'0')}`,
+      name: randItem(ALERT_NAMES),
+      severity: sev,
+      techniqueId: tech.id,
+      techniqueName: tech.name,
+      tactic: tech.tactic,
+      confidence: randInt(62,98),
+      source: randItem(SOURCES),
+      time: d,
+      status: i<3 ? "Open" : randItem(STATUSES),
+      raw: `Detected ${tech.name} activity on host ${['DESKTOP-X9K','WRK-SEC-04','SRV-DC-01','LAPTOP-DEV-22'][randInt(0,3)]}. Event logged via ${randItem(SOURCES)}.`,
+      iocs: [`${['192.168','10.0','172.16'][randInt(0,2)]}.${randInt(1,254)}.${randInt(1,254)}`, `${['malware','c2','stage','payload'][randInt(0,3)]}.${['xyz','top','info','io'][randInt(0,3)]}`, `hash:${Math.random().toString(16).slice(2,14)}`],
+    });
+  }
+  return alerts.sort((a,b)=>b.time-a.time);
+}
+
+const SAMPLE_ALERTS = [
+  "PowerShell -encodedcommand JABzAD0ATgBlAHcALQBPAGIAagBlAGMAdAAgAE4AZQB0AC4AV2ViAEMAbABpAGUAbgB0ADsA executed on DESKTOP-X9K2",
+  "LSASS.exe memory access detected from unknown process rundll32.exe (PID 4422). Possible credential dumping.",
+  "RDP login from 185.220.101.42 to SRVDC01 at 03:14 UTC using domain admin account svc_backup.",
+  "Email with attachment Invoice_Q4.xlsm received by finance@corp.com. Macro execution blocked by AV.",
+  "C2 beacon to 185.125.190.21:443 every 60s detected from HR-LAPTOP-09. JA3 hash matches Cobalt Strike.",
+  "Scheduled task 'WinUpdateHelper' created in C:\\Windows\\Temp\\ by non-admin user jsmith.",
+];
+
+const ANALYZE_MAP = [
+  { keywords:["powershell","encoded","base64","scriptblock"], techId:"T1059.001", conf:94 },
+  { keywords:["lsass","credential","dump","mimikatz","sekurlsa"], techId:"T1003", conf:96 },
+  { keywords:["rdp","3389","remote desktop","xfreerdp"], techId:"T1021.001", conf:91 },
+  { keywords:["phish","attachment","macro","xlsm","docm","email"], techId:"T1566.001", conf:89 },
+  { keywords:["beacon","c2","cobalt strike","https","443","ja3"], techId:"T1071.001", conf:87 },
+  { keywords:["scheduled task","schtasks","task","cron"], techId:"T1053.005", conf:85 },
+  { keywords:["injection","inject","svchost","createremotethread"], techId:"T1055", conf:88 },
+  { keywords:["ransomware","encrypt","shadow copy","vssadmin"], techId:"T1486", conf:97 },
+  { keywords:["net user","net group","ldap","account enum"], techId:"T1087", conf:82 },
+  { keywords:["net share","smb","share","\\\\"], techId:"T1135", conf:80 },
+  { keywords:["exfil","upload","large data","transfer out"], techId:"T1041", conf:83 },
+  { keywords:["obfuscat","pack","encode","xor"], techId:"T1027", conf:79 },
+  { keywords:["login","logon","account","off-hours","unusual location"], techId:"T1078", conf:84 },
+  { keywords:["systeminfo","whoami","hostname","sysinfo","discovery"], techId:"T1082", conf:77 },
+  { keywords:["av","antivirus","defender","edr","tamper","disable","kill"], techId:"T1562.001", conf:86 },
+  { keywords:["bitsadmin","bits","download tool","wget","curl"], techId:"T1105", conf:81 },
+];
+
+const INVESTIGATION_GUIDANCE = {
+  "T1059.001":["Check PowerShell logs (Event ID 4104) for full script block content","Review parent process of PowerShell – identify launching application","Decode any base64-encoded command-line arguments","Check for download cradles (Net.WebClient, Invoke-WebRequest)","Search for dropped payloads in %TEMP% or %APPDATA%","Review scheduled tasks created around the same time"],
+  "T1003":["Isolate the affected host immediately","Identify process that accessed LSASS memory (audit Event 4656/4663)","Assume all cached credentials on host are compromised","Rotate passwords for all accounts that logged in to the host","Check for lateral movement using harvested credentials","Review for Mimikatz IOCs: sekurlsa, lsadump modules"],
+  "T1021.001":["Identify the source IP and geolocation of RDP connection","Verify if the account used is legitimate and authorized","Check for off-hours access patterns","Review all commands run during the RDP session","Look for data exfiltration via clipboard or file transfer","Disable RDP if not required on the affected host"],
+  "T1566.001":["Quarantine the malicious email immediately","Identify all recipients of the email","Check if attachment was opened or macros were enabled","Look for child processes of Office applications (cmd, powershell, wscript)","Block sender domain at email gateway","Search for dropped files from the attachment"],
+  "T1071.001":["Extract and analyze the beacon interval and jitter","Check JA3/JA3S hash against known C2 frameworks","Inspect full HTTP request/response headers for anomalies","Block the destination IP/domain at perimeter firewall","Search for additional hosts beaconing to the same destination","Use OSINT to investigate the C2 infrastructure"],
+  "T1053.005":["Dump all scheduled tasks and review recently created entries","Check task action command for encoded or suspicious commands","Identify the user account that created the task","Remove the malicious scheduled task immediately","Review for persistence in other locations (registry, services)","Verify task file in C:\\Windows\\System32\\Tasks\\"],
+  "T1055":["Identify the injector process and its origin","Dump injected memory region for malware sample","Check process tree for anomalous parent-child relationships","Review API call sequences: VirtualAlloc, WriteProcessMemory, CreateRemoteThread","Terminate the injected process and containing host process","Submit memory sample to sandbox for analysis"],
+  "T1486":["Isolate affected hosts immediately from network","Do NOT reboot – preserve volatile memory for forensics","Check for VSS shadow copy deletion (vssadmin delete shadows)","Identify patient zero – earliest encrypted host","Restore from known-good backup after eradication","Report to law enforcement and notify CISA if critical infrastructure"],
+  "T1087":["Review LDAP query logs for enumeration patterns","Identify source host and user account performing enumeration","Check if this is reconnaissance for privilege escalation","Review for subsequent lateral movement activity","Enable LDAP signing and channel binding","Set honeypot accounts to detect account discovery"],
+  "T1135":["Review SMB connection logs for share enumeration","Identify source of net view or net share commands","Check for subsequent data staging or collection activity","Audit network share permissions and remove unnecessary shares","Enable NetLogon and SMB audit logging","Block SMB at network perimeter"],
+  "T1041":["Identify destination IP and calculate total data volume","Inspect packet captures for exfiltrated data content","Check for use of encryption or compression before exfil","Determine data classification of exfiltrated content","Block destination at firewall","Notify legal and compliance team if PII/PHI involved"],
+  "T1027":["Decode/deobfuscate the payload for static analysis","Submit to sandbox for dynamic analysis","Check hash against threat intelligence feeds","Look for persistence mechanisms associated with the payload","Review process tree for additional dropped payloads","Search for similar encoded strings across the environment"],
+  "T1078":["Verify if the account activity is authorized","Check login location against known good locations","Review all actions taken during the suspicious session","Reset account credentials immediately if unauthorized","Enable MFA on the account","Audit all recent activity from the account"],
+  "T1082":["Check if systeminfo execution is part of normal admin activity","Review process that ran the discovery command","Look for subsequent lateral movement or escalation","Search for additional discovery commands from same host/user","Review for automated tooling signatures (Cobalt Strike, Meterpreter)"],
+  "T1562.001":["Verify which security tool was targeted and current state","Re-enable or reinstall the disabled security tool","Check if tool was disabled manually or via script","Look for persistence mechanisms that may re-disable tools on reboot","Review Event ID 7036 (service stopped) logs","Check for other defense evasion activity"],
+  "T1105":["Identify all files downloaded and their hashes","Submit downloaded files to sandbox and threat intel","Check download source IP/domain reputation","Look for execution of downloaded files","Review network logs for additional download attempts","Block the download source at perimeter"],
+};
+
+let allAlerts = genAlerts(80);
+let currentPage = 1;
+const PAGE_SIZE = 15;
+let currentAlertId = null;
+let lastAnalysis = null;
+
+// ============================================================
+//  NAVIGATION
+// ============================================================
+function navigate(page, data) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sidebar nav ul li button').forEach(b=>b.classList.remove('active'));
+  const pageEl = document.getElementById('page-'+page);
+  if (pageEl) pageEl.classList.add('active');
+  const navBtn = document.getElementById('nav-'+page);
+  if (navBtn) navBtn.classList.add('active');
+  document.getElementById('main-content').scrollTop = 0;
+  closeSidebar();
+
+  if (page==='dashboard') renderDashboard();
+  if (page==='history')   renderHistory();
+  if (page==='techniques') renderTechniques();
+  if (page==='tactics')   renderTactics();
+  if (page==='alert-detail' && data) renderAlertDetail(data);
+}
+
+// ============================================================
+//  AUTH
+// ============================================================
+function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const pass  = document.getElementById('login-password').value;
+  if (!email || !pass) { showToast('Please enter email and password.'); return; }
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-shell').style.display='block';
+  renderNotifications();
+  navigate('dashboard');
+}
+function doLogout() {
+  document.getElementById('app-shell').style.display='none';
+  document.getElementById('login-screen').style.display='block';
+}
+
+// ============================================================
+//  SIDEBAR / HAMBURGER
+// ============================================================
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('overlay').classList.toggle('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('overlay').classList.remove('show');
+}
+
+// ============================================================
+//  DASHBOARD
+// ============================================================
+function renderDashboard() {
+  renderTacticChart();
+  renderDashboardTable();
+}
+function renderTacticChart() {
+  const tacticCounts = {};
+  allAlerts.forEach(a=>{ tacticCounts[a.tactic] = (tacticCounts[a.tactic]||0)+1; });
+  const sorted = Object.entries(tacticCounts).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxVal = Math.max(...sorted.map(x=>x[1]));
+  const colors = ['#58a6ff','#7c5cd8','#f78166','#3fb950','#d29922','#ffa657','#79c0ff','#ff6e96'];
+  const wrap = document.getElementById('tactic-chart');
+  wrap.innerHTML = sorted.map(([tactic,count],i)=>`
+    <div class="chart-bar-group">
+      <div class="chart-bar" data-val="${count}" style="height:${Math.round((count/maxVal)*100)}%;background:${colors[i%colors.length]};min-height:4px"></div>
+      <div class="chart-label" title="${tactic}">${tactic.split(' ').slice(-1)[0]}</div>
+    </div>`).join('');
+}
+function renderDashboardTable() {
+  const tbody = document.getElementById('dashboard-tbody');
+  tbody.innerHTML = allAlerts.slice(0,10).map(a=>`
+    <tr class="clickable-row" onclick="navigate('alert-detail',${JSON.stringify(a).replace(/"/g,'&quot;')})">
+      <td><code style="font-size:11px;color:var(--muted)">${a.id}</code></td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${a.name}">${a.name}</td>
+      <td>${sevBadge(a.severity)}</td>
+      <td><span style="font-size:11px;color:var(--accent)">${a.techniqueId}</span> ${a.techniqueName}</td>
+      <td><span class="badge-tactic">${a.tactic}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${a.source}</td>
+      <td style="font-size:12px;color:var(--muted);white-space:nowrap">${timeAgo(a.time)}</td>
+      <td>${statusBadge(a.status)}</td>
+    </tr>`).join('');
+}
+
+// ============================================================
+//  HISTORY
+// ============================================================
+function renderHistory() {
+  populateTacticFilter('history-tactic');
+  filterHistory();
+}
+function filterHistory() {
+  const q     = document.getElementById('history-search').value.toLowerCase();
+  const sev   = document.getElementById('history-sev').value;
+  const status= document.getElementById('history-status').value;
+  const tactic= document.getElementById('history-tactic').value;
+  let filtered = allAlerts.filter(a=>{
+    if (sev    && a.severity!==sev)   return false;
+    if (status && a.status!==status)  return false;
+    if (tactic && a.tactic!==tactic)  return false;
+    if (q && !`${a.id} ${a.name} ${a.techniqueName} ${a.source}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const total = filtered.length;
+  const pages = Math.ceil(total/PAGE_SIZE);
+  if (currentPage > pages) currentPage = 1;
+  const slice = filtered.slice((currentPage-1)*PAGE_SIZE, currentPage*PAGE_SIZE);
+  const tbody = document.getElementById('history-tbody');
+  if (slice.length===0) {
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="empty-icon">🔍</div><p>No alerts match your filters</p></div></td></tr>`;
+  } else {
+    tbody.innerHTML = slice.map(a=>`
+      <tr class="clickable-row" onclick="navigate('alert-detail',${JSON.stringify(a).replace(/"/g,'&quot;')})">
+        <td><code style="font-size:11px;color:var(--muted)">${a.id}</code></td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.name}</td>
+        <td>${sevBadge(a.severity)}</td>
+        <td style="white-space:nowrap"><span style="font-size:11px;color:var(--accent)">${a.techniqueId}</span> ${a.techniqueName}</td>
+        <td><span class="badge-tactic">${a.tactic}</span></td>
+        <td><div class="confidence-bar" style="width:60px;margin-top:4px"><div class="confidence-fill ${a.confidence>=80?'conf-high':a.confidence>=65?'conf-med':'conf-low'}" style="width:${a.confidence}%"></div></div><div style="font-size:11px;margin-top:2px">${a.confidence}%</div></td>
+        <td style="font-size:12px;color:var(--muted)">${a.source}</td>
+        <td style="font-size:12px;color:var(--muted);white-space:nowrap">${timeAgo(a.time)}</td>
+        <td>${statusBadge(a.status)}</td>
+        <td>
+          <button class="btn btn-sm" onclick="event.stopPropagation();navigate('alert-detail',${JSON.stringify(a).replace(/"/g,'&quot;')})">View</button>
+        </td>
+      </tr>`).join('');
+  }
+  document.getElementById('history-count').textContent = `Showing ${slice.length} of ${total} alerts`;
+  renderPagination(pages, filtered);
+}
+function renderPagination(pages, filtered) {
+  const pag = document.getElementById('pagination');
+  if (pages<=1) { pag.innerHTML=''; return; }
+  let html = `<button class="btn btn-sm" onclick="goPage(${currentPage-1},event)" ${currentPage===1?'disabled':''}>‹</button>`;
+  for (let p=1;p<=pages;p++) {
+    if (p===1||p===pages||Math.abs(p-currentPage)<=1) {
+      html += `<button class="btn btn-sm ${p===currentPage?'btn-accent':''}" onclick="goPage(${p},event)">${p}</button>`;
+    } else if (Math.abs(p-currentPage)===2) {
+      html += `<span style="padding:0 4px;color:var(--muted)">…</span>`;
+    }
+  }
+  html += `<button class="btn btn-sm" onclick="goPage(${currentPage+1},event)" ${currentPage===pages?'disabled':''}>›</button>`;
+  pag.innerHTML = html;
+}
+function goPage(p, e) { e && e.stopPropagation(); currentPage=p; filterHistory(); }
+
+// ============================================================
+//  ALERT DETAIL
+// ============================================================
+function renderAlertDetail(alert) {
+  if (typeof alert === 'string') alert = JSON.parse(alert);
+  currentAlertId = alert.id;
+  document.getElementById('detail-breadcrumb').textContent = alert.id;
+  document.getElementById('detail-title').textContent = alert.name;
+  document.getElementById('ad-name').textContent = alert.name;
+  document.getElementById('ad-severity').innerHTML = sevBadge(alert.severity);
+  document.getElementById('ad-time').textContent = alert.time ? new Date(alert.time).toLocaleString() : '—';
+  document.getElementById('ad-source').textContent = alert.source;
+  document.getElementById('ad-status').innerHTML = statusBadge(alert.status);
+  document.getElementById('ad-tech-id').textContent = alert.techniqueId;
+  document.getElementById('ad-tech-name').textContent = alert.techniqueName;
+  document.getElementById('ad-tactic').textContent = alert.tactic;
+  document.getElementById('ad-confidence').textContent = alert.confidence+'%';
+
+  document.getElementById('ad-meta-table').innerHTML = [
+    ['Alert ID', alert.id],
+    ['Severity', sevBadge(alert.severity)],
+    ['Source', alert.source],
+    ['Status', statusBadge(alert.status)],
+    ['IOCs', (alert.iocs||[]).join(', ') || '—'],
+    ['Raw Event', `<span style="font-size:12px;color:var(--muted)">${alert.raw||'—'}</span>`],
+  ].map(([k,v])=>`<tr><td style="color:var(--muted);padding:5px 0;white-space:nowrap;padding-right:16px">${k}</td><td>${v}</td></tr>`).join('');
+
+  const t1 = new Date(alert.time);
+  const t2 = new Date(t1.getTime()-30000);
+  const t3 = new Date(t1.getTime()-300000);
+  document.getElementById('ad-timeline').innerHTML = [
+    [t1, 'Alert Triggered', `${alert.name} detected by ${alert.source}`],
+    [t2, 'Initial Triage', `Severity assessed as ${alert.severity}. Mapped to ${alert.techniqueId}`],
+    [t3, 'Event Logged', `Raw event ingested from ${alert.source} host sensor`],
+  ].map(([time,evt,desc])=>`
+    <div class="timeline-item">
+      <div class="t-time">${new Date(time).toLocaleString()}</div>
+      <div class="t-event">${evt}</div>
+      <div class="t-desc">${desc}</div>
+    </div>`).join('');
+
+  const guidance = INVESTIGATION_GUIDANCE[alert.techniqueId] || ["Review the alert in context with other events","Check surrounding network and host logs","Escalate to Tier 2 analyst if activity confirmed malicious"];
+  document.getElementById('ad-guidance').innerHTML = guidance.map(g=>`<li>${g}</li>`).join('');
+}
+function markStatus(status) {
+  if (!currentAlertId) return;
+  const alert = allAlerts.find(a=>a.id===currentAlertId);
+  if (alert) {
+    alert.status = status;
+    document.getElementById('ad-status').innerHTML = statusBadge(status);
+    showToast(`Alert marked as ${status}`);
+  }
+}
+
+// ============================================================
+//  ANALYZE
+// ============================================================
+function initSamples() {
+  const wrap = document.getElementById('sample-alerts');
+  wrap.innerHTML = SAMPLE_ALERTS.map(s=>`<div class="sample-chip" onclick="useSample(this)">${s.substring(0,55)}…</div>`).join('');
+}
+function useSample(el) {
+  const full = SAMPLE_ALERTS[Array.from(el.parentElement.children).indexOf(el)];
+  document.getElementById('alert-input').value = full;
+  document.getElementById('alert-input').focus();
+}
+function analyzeAlert() {
+  const text = document.getElementById('alert-input').value.trim();
+  if (!text) { showToast('Please enter an alert to analyze.'); return; }
+  hideResult();
+  document.getElementById('analyze-loader').classList.add('show');
+  setTimeout(()=>{
+    document.getElementById('analyze-loader').classList.remove('show');
+    const result = matchTechnique(text);
+    showResult(result, text);
+  }, 1200);
+}
+function matchTechnique(text) {
+  const lower = text.toLowerCase();
+  let best = null, bestScore = 0;
+  for (const rule of ANALYZE_MAP) {
+    const matches = rule.keywords.filter(k=>lower.includes(k)).length;
+    if (matches > bestScore) { bestScore = matches; best = rule; }
+  }
+  if (!best) best = ANALYZE_MAP[randInt(0,ANALYZE_MAP.length-1)];
+  const tech = TECHNIQUES.find(t=>t.id===best.techId) || TECHNIQUES[0];
+  const confVariance = randInt(-5,5);
+  return { tech, confidence: Math.min(98, Math.max(60, best.conf + confVariance)) };
+}
+function showResult(result, rawText) {
+  const { tech, confidence } = result;
+  lastAnalysis = { tech, confidence, rawText };
+  document.getElementById('r-tech-id').textContent = tech.id;
+  document.getElementById('r-tech-name').textContent = tech.name;
+  document.getElementById('r-tactic').textContent = tech.tactic;
+  document.getElementById('r-conf-pct').textContent = confidence+'%';
+  const bar = document.getElementById('r-conf-bar');
+  bar.style.width = confidence+'%';
+  bar.className = 'confidence-fill ' + (confidence>=80?'conf-high':confidence>=65?'conf-med':'conf-low');
+  const sevMap = { "Impact":"Critical","Credential Access":"Critical","Initial Access":"High","Privilege Escalation":"High","Execution":"High","Lateral Movement":"High","Defense Evasion":"Medium","Command and Control":"Medium","Discovery":"Low","Persistence":"Medium","Collection":"Medium","Exfiltration":"High","Reconnaissance":"Low","Resource Development":"Low" };
+  const sev = sevMap[tech.tactic] || "Medium";
+  document.getElementById('r-severity-badge').innerHTML = sevBadge(sev);
+  document.getElementById('r-explanation').textContent = `The alert exhibits behavioral indicators strongly associated with ${tech.name} (${tech.id}). The key signals include command-line patterns, process context, and network/host artifacts that align with documented adversary use of this technique.`;
+  document.getElementById('r-attack-desc').textContent = tech.desc;
+  const guidance = INVESTIGATION_GUIDANCE[tech.id] || ["Review associated logs","Investigate source host","Escalate if confirmed malicious"];
+  document.getElementById('r-guidance').innerHTML = guidance.map(g=>`<li>${g}</li>`).join('');
+  document.getElementById('result-card').classList.add('show');
+}
+function hideResult() {
+  document.getElementById('result-card').classList.remove('show');
+}
+function saveToHistory() {
+  if (!lastAnalysis) return;
+  const { tech, confidence, rawText } = lastAnalysis;
+  const sevMap = { "Impact":"Critical","Credential Access":"Critical","Initial Access":"High","Privilege Escalation":"High","Execution":"High","Lateral Movement":"High","Defense Evasion":"Medium","Command and Control":"Medium","Discovery":"Low","Persistence":"Medium","Collection":"Medium","Exfiltration":"High","Reconnaissance":"Low","Resource Development":"Low" };
+  const sev = sevMap[tech.tactic] || "Medium";
+  const newAlert = {
+    id: `ALT-${String(1000+allAlerts.length).padStart(4,'0')}`,
+    name: `Manual Analysis: ${tech.name}`,
+    severity: sev,
+    techniqueId: tech.id,
+    techniqueName: tech.name,
+    tactic: tech.tactic,
+    confidence,
+    source: "Manual Analysis",
+    time: new Date(),
+    status: "Open",
+    raw: rawText.substring(0,200),
+    iocs: [],
+  };
+  allAlerts.unshift(newAlert);
+  showToast('Alert saved to history!');
+}
+
+// ============================================================
+//  TECHNIQUES
+// ============================================================
+function renderTechniques() {
+  populateTacticFilter('tech-tactic-filter');
+  filterTechniques();
+}
+function filterTechniques() {
+  const q = document.getElementById('tech-search').value.toLowerCase();
+  const tactic = document.getElementById('tech-tactic-filter').value;
+  const filtered = TECHNIQUES.filter(t=>{
+    if (tactic && t.tactic!==tactic) return false;
+    if (q && !`${t.id} ${t.name} ${t.tactic} ${t.desc}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const grid = document.getElementById('technique-grid');
+  grid.innerHTML = filtered.map(t=>`
+    <div class="technique-card" onclick="openTechModal('${t.id}')">
+      <div class="t-id">${t.id}</div>
+      <div class="t-name">${t.name}</div>
+      <div class="t-tactic"><span class="badge-tactic">${t.tactic}</span></div>
+      <div class="t-desc">${t.desc}</div>
+    </div>`).join('') || `<div class="empty-state"><div class="empty-icon">⚔️</div><p>No techniques match your search</p></div>`;
+}
+function openTechModal(id) {
+  const tech = TECHNIQUES.find(t=>t.id===id);
+  if (!tech) return;
+  document.getElementById('modal-tech-id').textContent = tech.id;
+  document.getElementById('modal-tech-name').textContent = tech.name;
+  document.getElementById('modal-tech-tactic').textContent = tech.tactic;
+  document.getElementById('modal-tech-desc').textContent = tech.desc;
+  document.getElementById('modal-tech-detection').textContent = tech.detection;
+  document.getElementById('modal-tech-mitigations').innerHTML = tech.mitigations.map(m=>`<li>${m}</li>`).join('');
+  document.getElementById('modal-tech-sources').innerHTML = tech.sources.map(s=>`<span class="modal-tag">${s}</span>`).join('');
+  document.getElementById('tech-modal').classList.add('open');
+}
+function closeTechModal(e) { if (e.target===document.getElementById('tech-modal')) document.getElementById('tech-modal').classList.remove('open'); }
+function useForAnalysis() {
+  const techId = document.getElementById('modal-tech-id').textContent;
+  const tech = TECHNIQUES.find(t=>t.id===techId);
+  document.getElementById('tech-modal').classList.remove('open');
+  navigate('analyze');
+  document.getElementById('alert-input').value = `Detected activity associated with ${tech.name} on endpoint. Process spawned with suspicious arguments.`;
+}
+
+// ============================================================
+//  TACTICS
+// ============================================================
+function renderTactics() {
+  const counts = {};
+  allAlerts.forEach(a=>{ counts[a.tactic]=(counts[a.tactic]||0)+1; });
+  const content = document.getElementById('tactics-content');
+  content.innerHTML = TACTICS.map(tactic=>{
+    const techs = TECHNIQUES.filter(t=>t.tactic===tactic.name);
+    const cnt = counts[tactic.name] || 0;
+    return `
+    <div class="tactic-row">
+      <div class="tactic-card-left" style="border-top:3px solid ${tactic.color}">
+        <div class="t-num" style="color:${tactic.color}">${cnt}</div>
+        <div class="t-label">alerts</div>
+        <div class="t-name">${tactic.name}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px">${tactic.id}</div>
+      </div>
+      <div class="tactic-techniques">
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px">${tactic.desc}</div>
+        <div>${techs.length>0 ? techs.map(t=>`<span class="mini-tech" onclick="openTechModal('${t.id}')">${t.id} · ${t.name}</span>`).join('') : '<span style="font-size:12px;color:var(--muted)">No techniques loaded for this tactic in current dataset.</span>'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+//  SETTINGS
+// ============================================================
+function showSettingsPanel(panel, btn) {
+  document.querySelectorAll('.settings-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.settings-nav button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sp-'+panel).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ============================================================
+//  NOTIFICATIONS
+// ============================================================
+const NOTIFICATIONS = [
+  { title:"Critical: Ransomware Activity", sub:"T1486 detected on SRV-PROD-01 · High confidence", time:"2 min ago", color:"var(--red)" },
+  { title:"High: LSASS Memory Access",    sub:"Possible credential dumping on DESKTOP-HR03", time:"15 min ago", color:"var(--orange)" },
+  { title:"High: Lateral RDP Movement",  sub:"Admin account accessed 3 hosts in 5 minutes", time:"32 min ago", color:"var(--orange)" },
+  { title:"Medium: C2 Beacon Detected",  sub:"Cobalt Strike beacon to 185.125.190.21", time:"1 hr ago", color:"var(--yellow)" },
+  { title:"Info: Weekly Threat Report",  sub:"Your weekly ATT&CK mapping summary is ready", time:"2 hr ago", color:"var(--accent)" },
+];
+function renderNotifications() {
+  document.getElementById('notif-list').innerHTML = NOTIFICATIONS.map(n=>`
+    <div class="notif-item">
+      <div style="display:flex;gap:8px">
+        <div class="notif-dot" style="background:${n.color}"></div>
+        <div>
+          <div class="n-title">${n.title}</div>
+          <div class="n-sub">${n.sub}</div>
+          <div class="n-time">${n.time}</div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+function toggleNotif() {
+  document.getElementById('notif-drawer').classList.toggle('open');
+}
+
+// ============================================================
+//  GLOBAL SEARCH
+// ============================================================
+function globalSearch(q) {
+  if (q.length < 2) return;
+  navigate('history');
+  document.getElementById('history-search').value = q;
+  filterHistory();
+}
+
+// ============================================================
+//  EXPORT
+// ============================================================
+function exportCSV() {
+  const rows = [['Alert ID','Name','Severity','Technique ID','Technique','Tactic','Confidence','Source','Time','Status']];
+  allAlerts.forEach(a=>rows.push([a.id,`"${a.name}"`,a.severity,a.techniqueId,`"${a.techniqueName}"`,a.tactic,a.confidence+'%',a.source,new Date(a.time).toISOString(),a.status]));
+  const csv = rows.map(r=>r.join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const url  = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='alert-history.csv'; a.click();
+  URL.revokeObjectURL(url);
+  showToast('Exported alert-history.csv');
+}
+
+// ============================================================
+//  HELPERS
+// ============================================================
+function sevBadge(s) {
+  const map = { Critical:'sev-critical',High:'sev-high',Medium:'sev-medium',Low:'sev-low' };
+  const dot = { Critical:'🔴',High:'🟠',Medium:'🟡',Low:'🟢' };
+  return `<span class="badge-sev ${map[s]||'sev-info'}">${dot[s]||'⚪'} ${s}</span>`;
+}
+function statusBadge(s) {
+  const map = { Open:'status-open',Investigating:'status-investigating',Resolved:'status-resolved','False Positive':'status-fp' };
+  return `<span class="badge-status ${map[s]||''}">${s}</span>`;
+}
+function timeAgo(date) {
+  const d = new Date(date);
+  const diff = (Date.now()-d.getTime())/1000;
+  if (diff<60) return 'just now';
+  if (diff<3600) return Math.floor(diff/60)+'m ago';
+  if (diff<86400) return Math.floor(diff/3600)+'h ago';
+  return Math.floor(diff/86400)+'d ago';
+}
+function populateTacticFilter(id) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  const tactics = [...new Set(TECHNIQUES.map(t=>t.tactic))].sort();
+  sel.innerHTML = `<option value="">All Tactics</option>` + tactics.map(t=>`<option>${t}</option>`).join('');
+}
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.style.opacity='1';
+  toast.style.transform='translateY(0)';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>{ toast.style.opacity='0'; toast.style.transform='translateY(10px)'; },3000);
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+document.addEventListener('DOMContentLoaded', ()=>{
+  initSamples();
+  // Enter key on login
+  document.getElementById('login-password').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+  document.getElementById('login-email').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+});
+</script>
+</body>
+</html>

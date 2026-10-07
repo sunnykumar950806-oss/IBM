@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Dashboard — MITRE ATT&CK Alert Mapper</title>
+<link rel="stylesheet" href="/static/css/app.css"/>
+</head>
+<body>
+<div class="app-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo">🛡 ATT&CK Mapper</div>
+      <div class="tagline">MITRE ATT&CK Alert Mapper</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/"          class="nav-item" data-page="dashboard"><span class="icon">📊</span> Dashboard</a>
+      <a href="/analyze"   class="nav-item" data-page="analyze">  <span class="icon">🔍</span> Analyze Alert</a>
+      <a href="/history"   class="nav-item" data-page="history">  <span class="icon">📋</span> Alert History</a>
+      <a href="/techniques"class="nav-item" data-page="techniques"><span class="icon">🎯</span> MITRE Techniques</a>
+      <a href="/about"     class="nav-item" data-page="about">    <span class="icon">ℹ️</span> About</a>
+    </nav>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">SOC Dashboard</div>
+        <div class="topbar-sub">Security Operations Overview</div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center">
+        <a href="/analyze" class="btn btn-primary">+ Analyze Alert</a>
+      </div>
+    </div>
+
+    <div class="page" id="app">
+      <div style="text-align:center;padding:60px"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+<script>
+setActiveNav("dashboard");
+
+async function loadDashboard() {
+  const app = document.getElementById("app");
+  try {
+    const d = await API.get("/api/dashboard");
+    app.innerHTML = buildDashboard(d);
+    renderBarChart("tactics-chart", d.top_tactics);
+    renderBarChart("techniques-chart", d.top_techniques);
+    initMappingPanels();
+  } catch (e) {
+    app.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><p>${escHtml(e.message)}</p></div>`;
+  }
+}
+
+function buildDashboard(d) {
+  return `
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Total Alerts</div>
+        <div class="stat-value accent">${d.total_alerts}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Mapped</div>
+        <div class="stat-value accent">${d.mapped_alerts}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">High Confidence</div>
+        <div class="stat-value high">${d.high_confidence_count}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Medium Confidence</div>
+        <div class="stat-value medium">${d.medium_confidence_count}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Low Confidence</div>
+        <div class="stat-value low">${d.low_confidence_count}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Unmapped</div>
+        <div class="stat-value" style="color:var(--muted)">${d.unmapped_alerts}</div>
+      </div>
+    </div>
+
+    <!-- Charts row -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+      <div class="card">
+        <div class="card-title">Top Tactics</div>
+        <div id="tactics-chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Top Techniques</div>
+        <div id="techniques-chart"></div>
+      </div>
+    </div>
+
+    <!-- Recent alerts -->
+    <div class="card">
+      <div class="card-title">Recent Alerts</div>
+      ${d.recent_alerts.length === 0
+        ? '<div class="empty-state"><p>No alerts yet. <a href="/analyze">Analyze your first alert →</a></p></div>'
+        : `<div class="table-wrap"><table>
+          <thead><tr>
+            <th>#</th><th>Type</th><th>Confidence</th><th>Techniques</th>
+            <th>Source IP</th><th>User</th><th>Preview</th><th>Timestamp</th>
+          </tr></thead>
+          <tbody>${d.recent_alerts.map(alertTableRow).join("")}</tbody>
+        </table></div>`
+      }
+    </div>`;
+}
+
+loadDashboard();
+</script>
+</body>
+</html>

